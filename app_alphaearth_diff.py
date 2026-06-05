@@ -2,39 +2,110 @@
 
 Streamlit app that compares AlphaEarth embedding bands between two years.
 
-Allows selecting two years (2017–2024), an optional area of interest (AOI) via GeoJSON,
+Allows selecting two years (2017-2024), an optional area of interest (AOI) via GeoJSON,
 and three embedding bands to visualise. The app displays RGB maps for each selected
 year and a difference map (band1 difference -> red, band2 difference -> green,
 band3 difference -> blue). Differences are computed as Year2 minus Year1.
 
-Bands are from 'A00' to 'A63'; each band ranges from -1 to 1 in the underlying images
-【749556096114857†L129-L147】. The difference image therefore ranges from -2 to 2, but values
-near zero indicate little change.
+Bands are from 'A00' to 'A63'; each band ranges from -1 to 1 in the underlying images.
+The difference image therefore ranges from -2 to 2, but values near zero indicate little change.
 
-The app requires Google Earth Engine authentication via service account secrets 
-(`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`).
+The app requires Google Earth Engine authentication via service account secrets
+(`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally `EE_PROJECT_ID`).
 """
+
+import json
+from typing import Optional
 
 import streamlit as st
 import geemap
 import ee
 from streamlit_folium import st_folium
 
-# Cache Earth Engine initialisation
-@st.cache_resource
+
+def _read_secret(name: str) -> Optional[str]:
+    """Read a string secret, returning None when it is missing or blank."""
+    value = st.secrets.get(name)
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def _build_service_account_key_data(
+    service_account: str, private_key_secret: str, project_id: Optional[str]
+) -> tuple[str, Optional[str]]:
+    """Return JSON key data suitable for ee.ServiceAccountCredentials."""
+    raw_secret = private_key_secret.strip()
+
+    try:
+        key_info = json.loads(raw_secret)
+    except json.JSONDecodeError:
+        private_key = raw_secret.replace("\\n", "\n")
+        key_info = {
+            "type": "service_account",
+            "client_email": service_account,
+            "private_key": private_key,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        if project_id:
+            key_info["project_id"] = project_id
+    else:
+        if not isinstance(key_info, dict):
+            raise ValueError("EE_PRIVATE_KEY must contain a JSON service-account key object.")
+        key_info.setdefault("client_email", service_account)
+        if isinstance(key_info.get("private_key"), str):
+            key_info["private_key"] = key_info["private_key"].replace("\\n", "\n")
+        if project_id:
+            key_info.setdefault("project_id", project_id)
+
+    key_email = key_info.get("client_email")
+    if key_email and key_email != service_account:
+        st.warning(
+            "EE_SERVICE_ACCOUNT does not match the client_email in EE_PRIVATE_KEY. "
+            "Use the service-account email from the JSON key."
+        )
+
+    project_id = project_id or key_info.get("project_id")
+    return json.dumps(key_info), project_id
+
+
+@st.cache_resource(show_spinner=False)
 def _init_ee_cached() -> None:
     """Initialise the Earth Engine API using service-account credentials from Streamlit secrets."""
-    service_account = st.secrets.get("EE_SERVICE_ACCOUNT")
-    private_key = st.secrets.get("EE_PRIVATE_KEY")
-    if not service_account or not private_key:
-        st.error("Earth Engine service-account credentials not found in Streamlit secrets.")
-        raise ValueError("Missing Earth Engine credentials")
-    credentials = ee.ServiceAccountCredentials(service_account, private_key)
+    service_account = _read_secret("EE_SERVICE_ACCOUNT")
+    private_key_secret = _read_secret("EE_PRIVATE_KEY")
+    project_id = _read_secret("EE_PROJECT_ID")
+
+    if not service_account or not private_key_secret:
+        st.error(
+            "Earth Engine credentials not found. Add EE_SERVICE_ACCOUNT and EE_PRIVATE_KEY "
+            "to Streamlit secrets."
+        )
+        st.caption(
+            "EE_PRIVATE_KEY should be the full JSON key file contents. EE_PROJECT_ID is optional "
+            "when the JSON key includes project_id."
+        )
+        st.stop()
+
     try:
-        ee.Initialize(credentials)
-    except Exception as e:
-        st.error(f"Failed to initialise Earth Engine: {e}")
-        raise
+        key_data, project_id = _build_service_account_key_data(
+            service_account, private_key_secret, project_id
+        )
+        credentials = ee.ServiceAccountCredentials(service_account, key_data=key_data)
+        if project_id:
+            ee.Initialize(credentials, project=project_id)
+        else:
+            ee.Initialize(credentials)
+    except Exception as exc:
+        st.error("Failed to initialise Earth Engine with the configured service account.")
+        st.caption(
+            "Confirm the Cloud project is registered for Earth Engine, the API is enabled, "
+            "and the service-account JSON key matches EE_SERVICE_ACCOUNT."
+        )
+        st.caption(str(exc))
+        st.stop()
+
 
 def get_aoi(geojson_str: str) -> ee.Geometry:
     """Return an AOI geometry from GeoJSON or a default bounding box if empty."""
@@ -55,6 +126,7 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
     ]
     return ee.Geometry.Polygon([default_coords])
 
+
 def get_embedding_image(year: int) -> ee.Image:
     """Retrieve the first image for the given year from the satellite embedding collection."""
     collection = (
@@ -64,6 +136,7 @@ def get_embedding_image(year: int) -> ee.Image:
     image = collection.first()
     return image
 
+
 def compute_difference(image1: ee.Image, image2: ee.Image, bands: list[str]) -> ee.Image:
     """Compute difference image (image2 - image1) for the selected bands."""
     band_diffs = []
@@ -72,10 +145,12 @@ def compute_difference(image1: ee.Image, image2: ee.Image, bands: list[str]) -> 
         band_diffs.append(diff.rename(band))
     return ee.Image.cat(band_diffs)
 
+
 def add_aoi_boundary(m: geemap.Map, aoi: ee.Geometry) -> None:
     """Add AOI boundary to a map as a non-filled outline."""
     outline = ee.Image().paint(aoi, 0, 2)
     m.add_layer(outline, {"palette": ["yellow"], "opacity": 1}, "AOI boundary")
+
 
 def main() -> None:
     """Render the Streamlit interface for exploring embedding differences."""
@@ -137,6 +212,7 @@ def main() -> None:
             "The difference map uses the selected bands, with red representing band 1 difference, "
             "green band 2 difference and blue band 3 difference. Values closer to zero indicate little change."
         )
+
 
 if __name__ == "__main__":
     main()
