@@ -26,6 +26,18 @@ streamlit run app.py
 
 The dashboard will open in your web browser, showing vegetation indices and statistics for selected dates.
 
+## No-cost guardrail
+
+This project is intended to avoid generating costs. The AlphaEarth apps should be run only with an Earth Engine project registered for eligible non-commercial, research, conservation, or impact use.
+
+To keep the project no-cost:
+
+- Register the Google Cloud project for non-commercial Earth Engine access.
+- Do not switch the Earth Engine project to commercial/paid use unless cost generation is intentionally approved.
+- Do not add batch exports to Google Cloud Storage, BigQuery, Vertex AI, paid Maps APIs, or other billable Google Cloud services.
+- Keep the AlphaEarth apps read-only. The current code reads public Earth Engine datasets and renders map layers; it does not export files, write Earth Engine assets, or create cloud resources.
+- Monitor the Streamlit app after deployment and stop it if Google/Streamlit reports quota, billing, or paid-plan prompts.
+
 ## Earth Engine setup for AlphaEarth apps
 
 The AlphaEarth apps use Google Earth Engine and require a registered Google Cloud project plus service-account credentials. In Streamlit Cloud, add these secrets in the app settings:
