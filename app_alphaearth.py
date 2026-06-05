@@ -4,19 +4,19 @@ year and area of interest (AOI).  The app uses the Google Earth Engine (GEE)
 Python API to fetch the annual satellite embedding dataset and displays the first
 three embedding bands (`A00`, `A01` and `A02`) as an RGB image on a Folium map.
 
-The embeddings represent 64‑dimensional vectors summarising multi‑sensor
-observations over a calendar year.  Each band ranges from –1 to 1 and does
+The embeddings represent 64-dimensional vectors summarising multi-sensor
+observations over a calendar year.  Each band ranges from -1 to 1 and does
 not have a direct physical meaning but reveals spatial patterns across the
-landscape【749556096114857†L75-L99】.  Bands `A00`, `A01` and `A02` are used to
-create a false‑colour RGB visualisation by mapping them to red, green and blue
-channels respectively【749556096114857†L129-L147】.
+landscape.  Bands `A00`, `A01` and `A02` are used to
+create a false-colour RGB visualisation by mapping them to red, green and blue
+channels respectively.
 
 Key features:
 
-* Authenticates to GEE using a service‑account and private key stored in
-  Streamlit secrets (`EE_SERVICE_ACCOUNT` and `EE_PRIVATE_KEY`).  An error is
-  displayed if these secrets are missing or invalid.
-* Provides a sidebar for selecting a year (2017–2024) and for optionally
+* Authenticates to GEE using a service-account and JSON private key stored in
+  Streamlit secrets (`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally
+  `EE_PROJECT_ID`).  An error is displayed if these secrets are missing or invalid.
+* Provides a sidebar for selecting a year (2017-2024) and for optionally
   entering a GeoJSON polygon defining a custom AOI.  If no AOI is supplied,
   the app falls back to a default bounding box around Königssee in Bavaria.
 * Fetches the appropriate embedding image from the `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
@@ -50,24 +50,88 @@ except ImportError as exc:
     ) from exc
 
 
+def _read_secret(name: str) -> Optional[str]:
+    """Read a string secret, returning None when it is missing or blank."""
+    value = st.secrets.get(name)
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def _build_service_account_key_data(
+    service_account: str, private_key_secret: str, project_id: Optional[str]
+) -> tuple[str, Optional[str]]:
+    """Return JSON key data suitable for ee.ServiceAccountCredentials."""
+    raw_secret = private_key_secret.strip()
+
+    try:
+        key_info = json.loads(raw_secret)
+    except json.JSONDecodeError:
+        private_key = raw_secret.replace("\\n", "\n")
+        key_info = {
+            "type": "service_account",
+            "client_email": service_account,
+            "private_key": private_key,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        if project_id:
+            key_info["project_id"] = project_id
+    else:
+        if not isinstance(key_info, dict):
+            raise ValueError("EE_PRIVATE_KEY must contain a JSON service-account key object.")
+        key_info.setdefault("client_email", service_account)
+        if isinstance(key_info.get("private_key"), str):
+            key_info["private_key"] = key_info["private_key"].replace("\\n", "\n")
+        if project_id:
+            key_info.setdefault("project_id", project_id)
+
+    key_email = key_info.get("client_email")
+    if key_email and key_email != service_account:
+        st.warning(
+            "EE_SERVICE_ACCOUNT does not match the client_email in EE_PRIVATE_KEY. "
+            "Use the service-account email from the JSON key."
+        )
+
+    project_id = project_id or key_info.get("project_id")
+    return json.dumps(key_info), project_id
+
+
 def init_ee() -> None:
-    """Initialise Earth Engine using service‑account credentials.
+    """Initialise Earth Engine using service-account credentials from Streamlit secrets."""
 
-    Reads the service account email and private key from Streamlit secrets and
-    creates a credential for Earth Engine.  The result is cached so that
-    initialisation only happens once per session.
-    """
+    service_account = _read_secret("EE_SERVICE_ACCOUNT")
+    private_key_secret = _read_secret("EE_PRIVATE_KEY")
+    project_id = _read_secret("EE_PROJECT_ID")
 
-    if "EE_SERVICE_ACCOUNT" not in st.secrets or "EE_PRIVATE_KEY" not in st.secrets:
+    if not service_account or not private_key_secret:
         st.error(
-            "Earth Engine credentials not found. Please set EE_SERVICE_ACCOUNT and EE_PRIVATE_KEY in Streamlit secrets."
+            "Earth Engine credentials not found. Add EE_SERVICE_ACCOUNT and EE_PRIVATE_KEY "
+            "to Streamlit secrets."
+        )
+        st.caption(
+            "EE_PRIVATE_KEY should be the full JSON key file contents. EE_PROJECT_ID is optional "
+            "when the JSON key includes project_id."
         )
         st.stop()
 
-    service_account = st.secrets["EE_SERVICE_ACCOUNT"]
-    private_key = st.secrets["EE_PRIVATE_KEY"].replace("\\n", "\n")
-    credentials = ee.ServiceAccountCredentials(service_account, private_key)
-    ee.Initialize(credentials)
+    try:
+        key_data, project_id = _build_service_account_key_data(
+            service_account, private_key_secret, project_id
+        )
+        credentials = ee.ServiceAccountCredentials(service_account, key_data=key_data)
+        if project_id:
+            ee.Initialize(credentials, project=project_id)
+        else:
+            ee.Initialize(credentials)
+    except Exception as exc:
+        st.error("Failed to initialise Earth Engine with the configured service account.")
+        st.caption(
+            "Confirm the Cloud project is registered for Earth Engine, the API is enabled, "
+            "and the service-account JSON key matches EE_SERVICE_ACCOUNT."
+        )
+        st.caption(str(exc))
+        st.stop()
 
 
 @st.cache_resource(show_spinner=False)
@@ -114,8 +178,8 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
 def get_embedding_image(year: int) -> ee.Image:
     """Retrieve the first image for the given year from the embedding collection.
 
-    The Satellite Embedding V1 collection contains annual images from 2017–2024
-    where the start and end times correspond to the calendar year【749556096114857†L98-L104】.  This
+    The Satellite Embedding V1 collection contains annual images from 2017-2024
+    where the start and end times correspond to the calendar year.  This
     function filters the collection by year and returns the first image.
     """
 
@@ -127,7 +191,7 @@ def get_embedding_image(year: int) -> ee.Image:
 
 
 def add_aoi_boundary(m: geemap.Map, aoi: ee.Geometry) -> None:
-    """Add AOI boundary to a map as a non‑filled outline."""
+    """Add AOI boundary to a map as a non-filled outline."""
     outline = ee.Image().paint(aoi, 0, 2)  # value 0 (black), width 2 pixels
     m.add_layer(outline, {"palette": ["red"], "opacity": 1}, "AOI")
 
@@ -174,7 +238,7 @@ def main() -> None:
     st.markdown(
         """
         The RGB image below uses the first three embedding bands (`A00`, `A01`, `A02`) to reveal
-        spatial patterns across the selected area.  Each band ranges from –1 to 1【749556096114857†L129-L147】.
+        spatial patterns across the selected area.  Each band ranges from -1 to 1.
         """
     )
     # Display the map
