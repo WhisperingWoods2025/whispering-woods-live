@@ -33,6 +33,7 @@ This project is intended to avoid generating costs. The AlphaEarth apps should b
 To keep the project no-cost:
 
 - Register the Google Cloud project for non-commercial Earth Engine access.
+- Keep `EE_USAGE_MODE` set to `noncommercial`, `research`, `conservation`, or `impact`. If it is set to `commercial`, `paid`, `billable`, `enterprise`, `government_operational`, or `production_paid`, the AlphaEarth apps stop before initializing Earth Engine.
 - Do not switch the Earth Engine project to commercial/paid use unless cost generation is intentionally approved.
 - Do not add batch exports to Google Cloud Storage, BigQuery, Vertex AI, paid Maps APIs, or other billable Google Cloud services.
 - Keep the AlphaEarth apps read-only. The current code reads public Earth Engine datasets and renders map layers; it does not export files, write Earth Engine assets, or create cloud resources.
@@ -60,6 +61,8 @@ EE_PRIVATE_KEY = '''
 '''
 # Optional when project_id is already present in EE_PRIVATE_KEY.
 EE_PROJECT_ID = "your-project-id"
+# Optional no-cost guard label. Defaults to noncommercial when omitted.
+EE_USAGE_MODE = "noncommercial"
 ```
 
 For local development, put the same values in `.streamlit/secrets.toml`. Do not commit real service-account keys to the repository.
