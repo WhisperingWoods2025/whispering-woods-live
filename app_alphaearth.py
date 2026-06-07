@@ -16,6 +16,8 @@ Key features:
 * Authenticates to GEE using a service-account and JSON private key stored in
   Streamlit secrets (`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally
   `EE_PROJECT_ID`).  An error is displayed if these secrets are missing or invalid.
+* Enforces a no-cost runtime guard. If `EE_USAGE_MODE` is set to a commercial,
+  paid, or billable mode, the app stops before Earth Engine initialisation.
 * Provides a sidebar for selecting a year (2017-2024) and for optionally
   entering a GeoJSON polygon defining a custom AOI.  If no AOI is supplied,
   the app falls back to a default bounding box around Königssee in Bavaria.
@@ -50,6 +52,16 @@ except ImportError as exc:
     ) from exc
 
 
+_COSTED_USAGE_MODES = {
+    "billable",
+    "commercial",
+    "enterprise",
+    "government_operational",
+    "paid",
+    "production_paid",
+}
+
+
 def _read_secret(name: str) -> Optional[str]:
     """Read a string secret, returning None when it is missing or blank."""
     value = st.secrets.get(name)
@@ -57,6 +69,26 @@ def _read_secret(name: str) -> Optional[str]:
         return None
     value = str(value).strip()
     return value or None
+
+
+def _normalise_usage_mode(value: Optional[str]) -> str:
+    """Normalize the optional Earth Engine usage mode secret."""
+    if not value:
+        return "noncommercial"
+    return value.lower().replace(" ", "_").replace("-", "_")
+
+
+def enforce_no_cost_guardrail() -> str:
+    """Stop the app if secrets explicitly mark the Earth Engine project as paid."""
+    usage_mode = _normalise_usage_mode(_read_secret("EE_USAGE_MODE"))
+    if usage_mode in _COSTED_USAGE_MODES:
+        st.error("No-cost guardrail active: this app is not configured for paid Earth Engine use.")
+        st.caption(
+            "Use an Earth Engine project registered for eligible non-commercial, research, "
+            "conservation, or impact work. The app stopped before initializing Earth Engine."
+        )
+        st.stop()
+    return usage_mode
 
 
 def _build_service_account_key_data(
@@ -200,6 +232,11 @@ def main() -> None:
     """Render the Streamlit user interface and map."""
     st.set_page_config(page_title="AlphaEarth Embeddings Explorer", layout="wide")
     st.title("AlphaEarth Embeddings Explorer")
+    usage_mode = enforce_no_cost_guardrail()
+    st.caption(
+        f"No-cost mode: Earth Engine usage is treated as `{usage_mode}`; "
+        "this app only reads public datasets and renders map layers."
+    )
 
     # Initialise Earth Engine
     _init_ee_cached()
