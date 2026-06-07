@@ -11,7 +11,8 @@ Bands are from 'A00' to 'A63'; each band ranges from -1 to 1 in the underlying i
 The difference image therefore ranges from -2 to 2, but values near zero indicate little change.
 
 The app requires Google Earth Engine authentication via service account secrets
-(`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally `EE_PROJECT_ID`).
+(`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally `EE_PROJECT_ID`) and stops
+if `EE_USAGE_MODE` is set to a commercial, paid, or billable mode.
 """
 
 import json
@@ -23,6 +24,16 @@ import ee
 from streamlit_folium import st_folium
 
 
+_COSTED_USAGE_MODES = {
+    "billable",
+    "commercial",
+    "enterprise",
+    "government_operational",
+    "paid",
+    "production_paid",
+}
+
+
 def _read_secret(name: str) -> Optional[str]:
     """Read a string secret, returning None when it is missing or blank."""
     value = st.secrets.get(name)
@@ -30,6 +41,26 @@ def _read_secret(name: str) -> Optional[str]:
         return None
     value = str(value).strip()
     return value or None
+
+
+def _normalise_usage_mode(value: Optional[str]) -> str:
+    """Normalize the optional Earth Engine usage mode secret."""
+    if not value:
+        return "noncommercial"
+    return value.lower().replace(" ", "_").replace("-", "_")
+
+
+def enforce_no_cost_guardrail() -> str:
+    """Stop the app if secrets explicitly mark the Earth Engine project as paid."""
+    usage_mode = _normalise_usage_mode(_read_secret("EE_USAGE_MODE"))
+    if usage_mode in _COSTED_USAGE_MODES:
+        st.error("No-cost guardrail active: this app is not configured for paid Earth Engine use.")
+        st.caption(
+            "Use an Earth Engine project registered for eligible non-commercial, research, "
+            "conservation, or impact work. The app stopped before initializing Earth Engine."
+        )
+        st.stop()
+    return usage_mode
 
 
 def _build_service_account_key_data(
@@ -156,6 +187,11 @@ def main() -> None:
     """Render the Streamlit interface for exploring embedding differences."""
     st.set_page_config(page_title="AlphaEarth Embedding Difference Explorer", layout="wide")
     st.title("AlphaEarth Embedding Difference Explorer")
+    usage_mode = enforce_no_cost_guardrail()
+    st.caption(
+        f"No-cost mode: Earth Engine usage is treated as `{usage_mode}`; "
+        "this app only reads public datasets and renders map layers."
+    )
 
     _init_ee_cached()
 
