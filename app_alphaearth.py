@@ -1,14 +1,14 @@
 """
 Streamlit application to visualize Google DeepMind's AlphaEarth embeddings for a chosen
 year and area of interest (AOI). The app uses the Google Earth Engine (GEE)
-Python API to fetch the annual satellite embedding dataset and displays the first
-three embedding bands (`A00`, `A01` and `A02`) as an RGB image on a Folium map.
+Python API to fetch the annual satellite embedding dataset and displays three
+embedding bands as an RGB image on a Folium map.
 
 The embeddings represent 64-dimensional vectors summarising multi-sensor
 observations over a calendar year. Each band ranges from -1 to 1 and does
 not have a direct physical meaning but reveals spatial patterns across the
-landscape. Bands `A00`, `A01` and `A02` are used to create a false-colour RGB
-visualisation by mapping them to red, green and blue channels respectively.
+landscape. Bands `A01`, `A16` and `A09` are used to create a false-colour RGB
+visualisation, following the public Earth Engine catalog example.
 
 Key features:
 
@@ -20,9 +20,10 @@ Key features:
 * Provides a sidebar for selecting a year (2017-2024) and for optionally
   entering a GeoJSON polygon defining a custom AOI. If no AOI is supplied,
   the app falls back to a default bounding box around Koenigssee in Bavaria.
-* Fetches the appropriate embedding image from the `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
-  collection for the selected year and displays the first three bands as an
-  RGB layer on a Folium map. The AOI boundary is outlined on top of the map.
+* Fetches embedding tiles from the `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
+  collection for the selected year and AOI, mosaics them, and displays the
+  selected bands as an RGB layer on a Folium map. The AOI boundary is outlined
+  on top of the map.
 * Uses `streamlit-folium` to embed the Folium map in the Streamlit app.
 """
 
@@ -44,6 +45,9 @@ except ImportError as exc:
         "The streamlit-folium package must be installed to run this app. See requirements.txt."
     ) from exc
 
+
+EMBEDDING_COLLECTION_ID = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
+DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 
 _COSTED_USAGE_MODES = {
     "billable",
@@ -82,6 +86,17 @@ def enforce_no_cost_guardrail() -> str:
         )
         st.stop()
     return usage_mode
+
+
+def show_earth_engine_error(message: str, exc: Exception) -> None:
+    """Display Earth Engine failures without triggering Streamlit's redacted traceback."""
+    st.error(message)
+    st.caption(
+        "This is usually a project permission, Earth Engine registration, API enablement, "
+        "or dataset/AOI availability issue. The app stopped before rendering the map."
+    )
+    st.code(str(exc), language="text")
+    st.stop()
 
 
 def _build_service_account_key_data(
@@ -181,7 +196,6 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
             st.warning("Invalid GeoJSON provided. Falling back to default AOI.")
 
     # Default bounding box around Koenigssee (approximate lat/long).
-    # Coordinates order: [lng, lat]
     default_coords = [
         [12.95, 47.55],
         [12.95, 47.65],
@@ -192,14 +206,18 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
     return ee.Geometry.Polygon([default_coords])
 
 
-def get_embedding_image(year: int) -> ee.Image:
-    """Retrieve the first image for the given year from the embedding collection."""
+def get_embedding_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
+    """Retrieve and mosaic embedding tiles for the given year and AOI."""
 
-    collection = ee.ImageCollection("GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL").filter(
-        ee.Filter.calendarRange(year, year, "year")
+    collection = (
+        ee.ImageCollection(EMBEDDING_COLLECTION_ID)
+        .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
+        .filterBounds(aoi)
     )
-    image = collection.first()
-    return image
+    tile_count = int(collection.size().getInfo())
+    if tile_count == 0:
+        raise ValueError(f"No AlphaEarth embedding tiles were found for {year} in this AOI.")
+    return collection.mosaic().clip(aoi), tile_count
 
 
 def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) -> None:
@@ -233,10 +251,8 @@ def main() -> None:
         "this app only reads public datasets and renders map layers."
     )
 
-    # Initialise Earth Engine
     _init_ee_cached()
 
-    # Sidebar controls
     with st.sidebar:
         st.header("Controls")
         year = st.selectbox(
@@ -249,34 +265,34 @@ def main() -> None:
             help="Paste a GeoJSON polygon here to define a custom AOI.",
         )
 
-    # Retrieve AOI
     aoi = get_aoi(geojson_input)
 
-    # Retrieve embedding image for selected year
-    image = get_embedding_image(year)
-    if not image:
-        st.error(f"No embedding available for {year}.")
-        return
+    try:
+        image, tile_count = get_embedding_image(year, aoi)
+        centroid = aoi.centroid().coordinates().getInfo()
+    except Exception as exc:
+        show_earth_engine_error("Earth Engine could not prepare the selected AOI/year.", exc)
 
-    # Visualisation parameters: map A00->R, A01->G, A02->B. Data range is [-1,1].
-    rgb_vis = {"bands": ["A00", "A01", "A02"], "min": -1, "max": 1}
+    rgb_vis = {"bands": DEFAULT_RGB_BANDS, "min": -0.3, "max": 0.3}
 
-    # Create map centered on the AOI
-    centroid = aoi.centroid().coordinates().getInfo()
     lat, lon = centroid[1], centroid[0]
     m = folium.Map(location=[lat, lon], zoom_start=11, tiles="OpenStreetMap")
-    add_ee_layer(m, image, rgb_vis, f"{year} Embedding RGB")
-    add_aoi_boundary(m, aoi)
+    try:
+        add_ee_layer(m, image, rgb_vis, f"{year} Embedding RGB")
+        add_aoi_boundary(m, aoi)
+    except Exception as exc:
+        show_earth_engine_error("Earth Engine could not render the map layer.", exc)
+
     folium.LayerControl().add_to(m)
 
     st.subheader("Visualization")
+    st.caption(f"Using {tile_count} AlphaEarth tile(s) for the selected AOI.")
     st.markdown(
         """
-        The RGB image below uses the first three embedding bands (`A00`, `A01`, `A02`) to reveal
+        The RGB image below uses embedding bands `A01`, `A16`, and `A09` to reveal
         spatial patterns across the selected area. Each band ranges from -1 to 1.
         """
     )
-    # Display the map
     st_folium(m, width=None, height=600)
 
 
