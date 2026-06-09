@@ -8,7 +8,8 @@ year and a difference map (band1 difference -> red, band2 difference -> green,
 band3 difference -> blue). Differences are computed as Year2 minus Year1.
 
 Bands are from 'A00' to 'A63'; each band ranges from -1 to 1 in the underlying images.
-The difference image therefore ranges from -2 to 2, but values near zero indicate little change.
+The app filters the public AlphaEarth collection by date and AOI before mosaicking the
+matching tiles, keeping the rendered Earth Engine work scoped to the selected area.
 
 The app requires Google Earth Engine authentication via service account secrets
 (`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally `EE_PROJECT_ID`) and stops
@@ -33,6 +34,9 @@ except ImportError as exc:
         "The streamlit-folium package must be installed to run this app. See requirements.txt."
     ) from exc
 
+
+EMBEDDING_COLLECTION_ID = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
+DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 
 _COSTED_USAGE_MODES = {
     "billable",
@@ -71,6 +75,17 @@ def enforce_no_cost_guardrail() -> str:
         )
         st.stop()
     return usage_mode
+
+
+def show_earth_engine_error(message: str, exc: Exception) -> None:
+    """Display Earth Engine failures without triggering Streamlit's redacted traceback."""
+    st.error(message)
+    st.caption(
+        "This is usually a project permission, Earth Engine registration, API enablement, "
+        "or dataset/AOI availability issue. The app stopped before rendering the map."
+    )
+    st.code(str(exc), language="text")
+    st.stop()
 
 
 def _build_service_account_key_data(
@@ -162,7 +177,6 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
         except Exception:
             st.warning("Invalid GeoJSON provided. Reverting to default AOI.")
 
-    # Default AOI: bounding box around Koenigssee
     default_coords = [
         [12.95, 47.55],
         [13.05, 47.55],
@@ -173,14 +187,17 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
     return ee.Geometry.Polygon([default_coords])
 
 
-def get_embedding_image(year: int) -> ee.Image:
-    """Retrieve the first image for the given year from the satellite embedding collection."""
+def get_embedding_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
+    """Retrieve and mosaic embedding tiles for the given year and AOI."""
     collection = (
-        ee.ImageCollection("GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL")
-        .filter(ee.Filter.calendarRange(year, year, "year"))
+        ee.ImageCollection(EMBEDDING_COLLECTION_ID)
+        .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
+        .filterBounds(aoi)
     )
-    image = collection.first()
-    return image
+    tile_count = int(collection.size().getInfo())
+    if tile_count == 0:
+        raise ValueError(f"No AlphaEarth embedding tiles were found for {year} in this AOI.")
+    return collection.mosaic().clip(aoi), tile_count
 
 
 def compute_difference(image1: ee.Image, image2: ee.Image, bands: list[str]) -> ee.Image:
@@ -244,39 +261,47 @@ def main() -> None:
         )
         band_options = [f"A{str(i).zfill(2)}" for i in range(64)]
         selected_bands = st.multiselect(
-            "Select 3 bands (RGB)", band_options, default=band_options[:3]
+            "Select 3 bands (RGB)", band_options, default=DEFAULT_RGB_BANDS
         )
         if len(selected_bands) != 3:
             st.warning("Please select exactly 3 bands.")
 
     if len(selected_bands) == 3:
         aoi = get_aoi(geojson_input)
-        img1 = get_embedding_image(year1)
-        img2 = get_embedding_image(year2)
-        if not img1 or not img2:
-            st.error("Could not retrieve embedding images for selected years.")
-            return
-        rgb_vis_year = {"bands": selected_bands, "min": -1, "max": 1}
-        rgb_vis_diff = {"bands": selected_bands, "min": -2, "max": 2}
-        centroid = aoi.centroid().coordinates().getInfo()
+        try:
+            img1, tile_count1 = get_embedding_image(year1, aoi)
+            img2, tile_count2 = get_embedding_image(year2, aoi)
+            centroid = aoi.centroid().coordinates().getInfo()
+        except Exception as exc:
+            show_earth_engine_error("Earth Engine could not prepare the selected AOI/years.", exc)
+
+        rgb_vis_year = {"bands": selected_bands, "min": -0.3, "max": 0.3}
+        rgb_vis_diff = {"bands": selected_bands, "min": -0.2, "max": 0.2}
         center = [centroid[1], centroid[0]]
 
-        m1 = build_map(center)
-        add_ee_layer(m1, img1, rgb_vis_year, f"{year1} Embedding")
-        add_aoi_boundary(m1, aoi)
-        folium.LayerControl().add_to(m1)
+        try:
+            m1 = build_map(center)
+            add_ee_layer(m1, img1, rgb_vis_year, f"{year1} Embedding")
+            add_aoi_boundary(m1, aoi)
+            folium.LayerControl().add_to(m1)
 
-        m2 = build_map(center)
-        add_ee_layer(m2, img2, rgb_vis_year, f"{year2} Embedding")
-        add_aoi_boundary(m2, aoi)
-        folium.LayerControl().add_to(m2)
+            m2 = build_map(center)
+            add_ee_layer(m2, img2, rgb_vis_year, f"{year2} Embedding")
+            add_aoi_boundary(m2, aoi)
+            folium.LayerControl().add_to(m2)
 
-        diff_img = compute_difference(img1, img2, selected_bands)
-        m_diff = build_map(center)
-        add_ee_layer(m_diff, diff_img, rgb_vis_diff, f"Difference {year2}-{year1}")
-        add_aoi_boundary(m_diff, aoi)
-        folium.LayerControl().add_to(m_diff)
+            diff_img = compute_difference(img1, img2, selected_bands)
+            m_diff = build_map(center)
+            add_ee_layer(m_diff, diff_img, rgb_vis_diff, f"Difference {year2}-{year1}")
+            add_aoi_boundary(m_diff, aoi)
+            folium.LayerControl().add_to(m_diff)
+        except Exception as exc:
+            show_earth_engine_error("Earth Engine could not render one of the map layers.", exc)
 
+        st.caption(
+            f"Using {tile_count1} AlphaEarth tile(s) for {year1} and "
+            f"{tile_count2} tile(s) for {year2} in the selected AOI."
+        )
         st.subheader(f"Embedding for {year1}")
         st_folium(m1, width=None, height=350, key="map1")
         st.subheader(f"Embedding for {year2}")
