@@ -1,35 +1,35 @@
 """
 Streamlit application to visualize Google DeepMind's AlphaEarth embeddings for a chosen
-year and area of interest (AOI).  The app uses the Google Earth Engine (GEE)
+year and area of interest (AOI). The app uses the Google Earth Engine (GEE)
 Python API to fetch the annual satellite embedding dataset and displays the first
 three embedding bands (`A00`, `A01` and `A02`) as an RGB image on a Folium map.
 
 The embeddings represent 64-dimensional vectors summarising multi-sensor
-observations over a calendar year.  Each band ranges from -1 to 1 and does
+observations over a calendar year. Each band ranges from -1 to 1 and does
 not have a direct physical meaning but reveals spatial patterns across the
-landscape.  Bands `A00`, `A01` and `A02` are used to
-create a false-colour RGB visualisation by mapping them to red, green and blue
-channels respectively.
+landscape. Bands `A00`, `A01` and `A02` are used to create a false-colour RGB
+visualisation by mapping them to red, green and blue channels respectively.
 
 Key features:
 
 * Authenticates to GEE using a service-account and JSON private key stored in
   Streamlit secrets (`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally
-  `EE_PROJECT_ID`).  An error is displayed if these secrets are missing or invalid.
+  `EE_PROJECT_ID`). An error is displayed if these secrets are missing or invalid.
 * Enforces a no-cost runtime guard. If `EE_USAGE_MODE` is set to a commercial,
   paid, or billable mode, the app stops before Earth Engine initialisation.
 * Provides a sidebar for selecting a year (2017-2024) and for optionally
-  entering a GeoJSON polygon defining a custom AOI.  If no AOI is supplied,
-  the app falls back to a default bounding box around Königssee in Bavaria.
+  entering a GeoJSON polygon defining a custom AOI. If no AOI is supplied,
+  the app falls back to a default bounding box around Koenigssee in Bavaria.
 * Fetches the appropriate embedding image from the `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
   collection for the selected year and displays the first three bands as an
-  RGB layer on a Folium map.  The AOI boundary is outlined on top of the map.
+  RGB layer on a Folium map. The AOI boundary is outlined on top of the map.
 * Uses `streamlit-folium` to embed the Folium map in the Streamlit app.
 """
 
 import json
 from typing import Optional
 
+import folium
 import streamlit as st
 
 try:
@@ -38,17 +38,10 @@ except ImportError as exc:
     raise RuntimeError("The earthengine-api must be installed to run this app.") from exc
 
 try:
-    import geemap.foliumap as geemap  # type: ignore
-except ImportError as exc:
-    raise RuntimeError(
-        "The geemap package must be installed to run this app.  See requirements.txt."
-    ) from exc
-
-try:
     from streamlit_folium import st_folium  # type: ignore
 except ImportError as exc:
     raise RuntimeError(
-        "The streamlit-folium package must be installed to run this app.  See requirements.txt."
+        "The streamlit-folium package must be installed to run this app. See requirements.txt."
     ) from exc
 
 
@@ -173,29 +166,21 @@ def _init_ee_cached() -> None:
 
 
 def get_aoi(geojson_str: str) -> ee.Geometry:
-    """Return the AOI geometry from a GeoJSON string or a default bounding box.
-
-    Parameters
-    ----------
-    geojson_str: str
-        A JSON string containing a GeoJSON polygon.  If empty or invalid the
-        default bounding box around Königssee (Germany) is used.
-
-    Returns
-    -------
-    ee.Geometry
-        A geometry representing the AOI.
-    """
+    """Return the AOI geometry from a GeoJSON string or a default bounding box."""
 
     if geojson_str:
         try:
             geo = json.loads(geojson_str)
-            # Expecting a Polygon geometry
+            geo_type = geo.get("type")
+            if geo_type == "FeatureCollection":
+                return ee.FeatureCollection(geo).geometry()
+            if geo_type == "Feature":
+                return ee.Geometry(geo["geometry"])
             return ee.Geometry(geo)
         except Exception:
             st.warning("Invalid GeoJSON provided. Falling back to default AOI.")
 
-    # Default bounding box around Königssee (approximate lat/long).
+    # Default bounding box around Koenigssee (approximate lat/long).
     # Coordinates order: [lng, lat]
     default_coords = [
         [12.95, 47.55],
@@ -208,12 +193,7 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
 
 
 def get_embedding_image(year: int) -> ee.Image:
-    """Retrieve the first image for the given year from the embedding collection.
-
-    The Satellite Embedding V1 collection contains annual images from 2017-2024
-    where the start and end times correspond to the calendar year.  This
-    function filters the collection by year and returns the first image.
-    """
+    """Retrieve the first image for the given year from the embedding collection."""
 
     collection = ee.ImageCollection("GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL").filter(
         ee.Filter.calendarRange(year, year, "year")
@@ -222,10 +202,25 @@ def get_embedding_image(year: int) -> ee.Image:
     return image
 
 
-def add_aoi_boundary(m: geemap.Map, aoi: ee.Geometry) -> None:
-    """Add AOI boundary to a map as a non-filled outline."""
-    outline = ee.Image().paint(aoi, 0, 2)  # value 0 (black), width 2 pixels
-    m.add_layer(outline, {"palette": ["red"], "opacity": 1}, "AOI")
+def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) -> None:
+    """Add an Earth Engine image as a Folium tile layer."""
+    map_id = image.getMapId(vis_params)
+    folium.TileLayer(
+        tiles=map_id["tile_fetcher"].url_format,
+        attr="Google Earth Engine",
+        name=name,
+        overlay=True,
+        control=True,
+    ).add_to(m)
+
+
+def add_aoi_boundary(m: folium.Map, aoi: ee.Geometry, color: str = "red") -> None:
+    """Add AOI boundary to a Folium map as a non-filled outline."""
+    folium.GeoJson(
+        aoi.getInfo(),
+        name="AOI boundary",
+        style_function=lambda _: {"color": color, "weight": 2, "fillOpacity": 0},
+    ).add_to(m)
 
 
 def main() -> None:
@@ -248,7 +243,10 @@ def main() -> None:
             "Select year", options=list(range(2017, 2025)), index=2024 - 2017
         )
         geojson_input: str = st.text_area(
-            "Optional AOI GeoJSON polygon", "", height=120, help="Paste a GeoJSON polygon here to define a custom AOI."
+            "Optional AOI GeoJSON polygon",
+            "",
+            height=120,
+            help="Paste a GeoJSON polygon here to define a custom AOI.",
         )
 
     # Retrieve AOI
@@ -260,22 +258,22 @@ def main() -> None:
         st.error(f"No embedding available for {year}.")
         return
 
-    # Visualisation parameters: map A00->R, A01->G, A02->B.  Data range is [-1,1].
+    # Visualisation parameters: map A00->R, A01->G, A02->B. Data range is [-1,1].
     rgb_vis = {"bands": ["A00", "A01", "A02"], "min": -1, "max": 1}
 
     # Create map centered on the AOI
     centroid = aoi.centroid().coordinates().getInfo()
     lat, lon = centroid[1], centroid[0]
-    m = geemap.Map(center=[lat, lon], zoom=11)
-    m.add_layer(image, rgb_vis, f"{year} Embedding RGB")
+    m = folium.Map(location=[lat, lon], zoom_start=11, tiles="OpenStreetMap")
+    add_ee_layer(m, image, rgb_vis, f"{year} Embedding RGB")
     add_aoi_boundary(m, aoi)
-    m.add_layer_control()
+    folium.LayerControl().add_to(m)
 
     st.subheader("Visualization")
     st.markdown(
         """
         The RGB image below uses the first three embedding bands (`A00`, `A01`, `A02`) to reveal
-        spatial patterns across the selected area.  Each band ranges from -1 to 1.
+        spatial patterns across the selected area. Each band ranges from -1 to 1.
         """
     )
     # Display the map
