@@ -1,6 +1,6 @@
 # Whispering Woods
 
-Whispering Woods is a prototype Streamlit dashboard for monitoring forest health using satellite-derived vegetation indices. The dashboard displays NDVI, NDWI, and EVI for multiple points within the Königssee forest area and supports date selection with a time slider.
+Whispering Woods is a prototype Streamlit dashboard for monitoring forest health using satellite-derived vegetation indices. The dashboard displays NDVI, NDWI, and EVI for multiple points within the Koenigssee forest area and supports date selection with a time slider.
 
 ## Files
 
@@ -67,4 +67,9 @@ EE_USAGE_MODE = "noncommercial"
 
 For local development, put the same values in `.streamlit/secrets.toml`. Do not commit real service-account keys to the repository.
 
-The Cloud project must have the Earth Engine API enabled and be registered for Earth Engine use.
+The Cloud project must have the Earth Engine API enabled and be registered for Earth Engine use. The service account also needs project-level IAM access:
+
+- `Service Usage Consumer` (`roles/serviceusage.serviceUsageConsumer`)
+- `Earth Engine Resource Viewer` (`roles/earthengine.viewer`), shown as beta in some Google Cloud IAM screens
+
+These roles let the service account use the registered Earth Engine project and read/render public Earth Engine datasets. They do not by themselves switch the project to paid/commercial Earth Engine use.
