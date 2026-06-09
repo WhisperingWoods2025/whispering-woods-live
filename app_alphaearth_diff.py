@@ -18,10 +18,20 @@ if `EE_USAGE_MODE` is set to a commercial, paid, or billable mode.
 import json
 from typing import Optional
 
+import folium
 import streamlit as st
-import geemap
-import ee
-from streamlit_folium import st_folium
+
+try:
+    import ee  # type: ignore
+except ImportError as exc:
+    raise RuntimeError("The earthengine-api must be installed to run this app.") from exc
+
+try:
+    from streamlit_folium import st_folium  # type: ignore
+except ImportError as exc:
+    raise RuntimeError(
+        "The streamlit-folium package must be installed to run this app. See requirements.txt."
+    ) from exc
 
 
 _COSTED_USAGE_MODES = {
@@ -142,12 +152,17 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
     """Return an AOI geometry from GeoJSON or a default bounding box if empty."""
     if geojson_str:
         try:
-            feature = geemap.geojson_to_ee(geojson_str)
-            geom = feature.geometry()
-            return geom
+            geo = json.loads(geojson_str)
+            geo_type = geo.get("type")
+            if geo_type == "FeatureCollection":
+                return ee.FeatureCollection(geo).geometry()
+            if geo_type == "Feature":
+                return ee.Geometry(geo["geometry"])
+            return ee.Geometry(geo)
         except Exception:
             st.warning("Invalid GeoJSON provided. Reverting to default AOI.")
-    # Default AOI: bounding box around Königssee
+
+    # Default AOI: bounding box around Koenigssee
     default_coords = [
         [12.95, 47.55],
         [13.05, 47.55],
@@ -177,10 +192,30 @@ def compute_difference(image1: ee.Image, image2: ee.Image, bands: list[str]) -> 
     return ee.Image.cat(band_diffs)
 
 
-def add_aoi_boundary(m: geemap.Map, aoi: ee.Geometry) -> None:
-    """Add AOI boundary to a map as a non-filled outline."""
-    outline = ee.Image().paint(aoi, 0, 2)
-    m.add_layer(outline, {"palette": ["yellow"], "opacity": 1}, "AOI boundary")
+def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) -> None:
+    """Add an Earth Engine image as a Folium tile layer."""
+    map_id = image.getMapId(vis_params)
+    folium.TileLayer(
+        tiles=map_id["tile_fetcher"].url_format,
+        attr="Google Earth Engine",
+        name=name,
+        overlay=True,
+        control=True,
+    ).add_to(m)
+
+
+def add_aoi_boundary(m: folium.Map, aoi: ee.Geometry, color: str = "yellow") -> None:
+    """Add AOI boundary to a Folium map as a non-filled outline."""
+    folium.GeoJson(
+        aoi.getInfo(),
+        name="AOI boundary",
+        style_function=lambda _: {"color": color, "weight": 2, "fillOpacity": 0},
+    ).add_to(m)
+
+
+def build_map(center: list[float], zoom: int = 10) -> folium.Map:
+    """Create a Folium map with consistent defaults."""
+    return folium.Map(location=center, zoom_start=zoom, tiles="OpenStreetMap")
 
 
 def main() -> None:
@@ -224,20 +259,24 @@ def main() -> None:
         rgb_vis_year = {"bands": selected_bands, "min": -1, "max": 1}
         rgb_vis_diff = {"bands": selected_bands, "min": -2, "max": 2}
         centroid = aoi.centroid().coordinates().getInfo()
-        lat, lon = centroid[1], centroid[0]
-        m1 = geemap.Map(center=[lat, lon], zoom=10)
-        m1.add_layer(img1, rgb_vis_year, f"{year1} Embedding")
+        center = [centroid[1], centroid[0]]
+
+        m1 = build_map(center)
+        add_ee_layer(m1, img1, rgb_vis_year, f"{year1} Embedding")
         add_aoi_boundary(m1, aoi)
-        m1.add_layer_control()
-        m2 = geemap.Map(center=[lat, lon], zoom=10)
-        m2.add_layer(img2, rgb_vis_year, f"{year2} Embedding")
+        folium.LayerControl().add_to(m1)
+
+        m2 = build_map(center)
+        add_ee_layer(m2, img2, rgb_vis_year, f"{year2} Embedding")
         add_aoi_boundary(m2, aoi)
-        m2.add_layer_control()
+        folium.LayerControl().add_to(m2)
+
         diff_img = compute_difference(img1, img2, selected_bands)
-        m_diff = geemap.Map(center=[lat, lon], zoom=10)
-        m_diff.add_layer(diff_img, rgb_vis_diff, f"Difference {year2}-{year1}")
+        m_diff = build_map(center)
+        add_ee_layer(m_diff, diff_img, rgb_vis_diff, f"Difference {year2}-{year1}")
         add_aoi_boundary(m_diff, aoi)
-        m_diff.add_layer_control()
+        folium.LayerControl().add_to(m_diff)
+
         st.subheader(f"Embedding for {year1}")
         st_folium(m1, width=None, height=350, key="map1")
         st.subheader(f"Embedding for {year2}")
