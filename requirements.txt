@@ -4,6 +4,5 @@ pydeck
 matplotlib
 numpy
 earthengine-api
-geemap
 folium
 streamlit-folium
