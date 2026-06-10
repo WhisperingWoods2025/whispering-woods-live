@@ -1,4 +1,4 @@
-"""Stakeholder-facing Whispering Woods forest layer explorer."""
+"""Stakeholder-facing Whispering Woods forest intelligence dashboard."""
 
 import csv
 import io
@@ -10,6 +10,7 @@ import zipfile
 from typing import Optional
 
 import folium
+import pandas as pd
 import streamlit as st
 
 try:
@@ -39,7 +40,6 @@ DWD_HISTORICAL_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/obser
 
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 AOI_COLOR = "#F1C75B"
-AVAILABLE_YEARS = list(range(2000, 2027))
 ALPHAEARTH_YEARS = set(range(2017, 2025))
 
 DWD_STATIONS = [
@@ -143,6 +143,82 @@ SOIL_SENSOR_SITES = [
     },
 ]
 
+LAYER_META = [
+    ("alphaearth", "Landscape patterns", "AlphaEarth embedding RGB for visual pattern discovery."),
+    ("tree_cover", "Tree canopy", "Year-2000 tree canopy baseline."),
+    ("tree_loss", "Tree-cover loss", "Cumulative forest loss to the selected year."),
+    ("water", "Water and wetlands", "Recurring surface water and wetland context."),
+    ("habitat", "Land-cover habitat", "ESA WorldCover classes for habitat context."),
+    ("fire", "Burned area history", "MODIS burned-area signal for the selected year."),
+    ("air_temperature", "Air temperature model", "ERA5-Land annual mean 2 m air temperature."),
+    ("soil_moisture", "Soil moisture model", "ERA5-Land annual mean top-layer soil moisture."),
+    ("weather_sensors", "DWD weather stations", "Official nearby DWD daily climate observations."),
+    ("soil_sensors", "Soil probe prototype", "Prototype local soil probes for workflow design."),
+]
+
+VIEW_PRESETS = {
+    "Stakeholder overview": {
+        "copy": "Balanced forest, water, observation, and landscape evidence for a first walkthrough.",
+        "layers": {
+            "alphaearth": True,
+            "tree_cover": False,
+            "tree_loss": True,
+            "water": True,
+            "habitat": False,
+            "fire": False,
+            "air_temperature": False,
+            "soil_moisture": False,
+            "weather_sensors": True,
+            "soil_sensors": True,
+        },
+    },
+    "Forest change": {
+        "copy": "Prioritizes canopy, tree-cover loss, and landscape pattern change.",
+        "layers": {
+            "alphaearth": True,
+            "tree_cover": True,
+            "tree_loss": True,
+            "water": False,
+            "habitat": False,
+            "fire": False,
+            "air_temperature": False,
+            "soil_moisture": False,
+            "weather_sensors": False,
+            "soil_sensors": False,
+        },
+    },
+    "Water and climate": {
+        "copy": "Shows water, temperature, soil moisture, and local weather context together.",
+        "layers": {
+            "alphaearth": False,
+            "tree_cover": False,
+            "tree_loss": False,
+            "water": True,
+            "habitat": False,
+            "fire": False,
+            "air_temperature": True,
+            "soil_moisture": True,
+            "weather_sensors": True,
+            "soil_sensors": True,
+        },
+    },
+    "Habitat and risk": {
+        "copy": "Combines habitat, water, fire history, and field-observation placeholders.",
+        "layers": {
+            "alphaearth": False,
+            "tree_cover": True,
+            "tree_loss": True,
+            "water": True,
+            "habitat": True,
+            "fire": True,
+            "air_temperature": False,
+            "soil_moisture": False,
+            "weather_sensors": True,
+            "soil_sensors": True,
+        },
+    },
+]
+
 _COSTED_USAGE_MODES = {
     "billable",
     "commercial",
@@ -160,69 +236,78 @@ def inject_theme_css() -> None:
 <style>
 :root {
   --ww-bg: #07110c;
-  --ww-nav: #07100b;
-  --ww-panel: #f0e4b8;
-  --ww-panel-text: #203427;
-  --ww-text: #f3f6ef;
-  --ww-muted: #9fb29f;
+  --ww-ink: #f3f6ef;
+  --ww-muted: #a7b9a7;
+  --ww-soft: rgba(168, 215, 168, 0.1);
+  --ww-line: rgba(168, 215, 168, 0.18);
   --ww-green: #a8d7a8;
   --ww-gold: #f1c75b;
+  --ww-blue: #4ea8de;
+  --ww-red: #d9624b;
 }
 
-[data-testid="stAppViewContainer"] { background: var(--ww-bg); color: var(--ww-text); }
-[data-testid="stHeader"] { background: rgba(7, 17, 12, 0.92); border-bottom: 1px solid rgba(168, 215, 168, 0.12); }
+[data-testid="stAppViewContainer"] { background: var(--ww-bg); color: var(--ww-ink); }
+[data-testid="stHeader"] { background: rgba(7, 17, 12, 0.94); border-bottom: 1px solid var(--ww-line); }
 [data-testid="stSidebar"] { background: #07110c; }
-.block-container { max-width: 1760px; padding: 1.1rem 1.6rem 1.2rem; }
+.block-container { max-width: 1780px; padding: 1.05rem 1.55rem 1.3rem; }
 
 .ww-topbar {
   display: flex; align-items: center; justify-content: space-between; min-height: 48px;
-  margin: -0.2rem 0 1.1rem; padding: 0.45rem 0.85rem; background: #07100b;
+  margin: -0.2rem 0 1.0rem; padding: 0.45rem 0.85rem; background: #07100b;
   border: 1px solid rgba(168, 215, 168, 0.16); border-radius: 8px;
 }
-.ww-brand { display: flex; align-items: center; gap: 0.6rem; color: var(--ww-text); font-weight: 780; font-size: 1.02rem; }
+.ww-brand { display: flex; align-items: center; gap: 0.6rem; color: var(--ww-ink); font-weight: 780; font-size: 1.02rem; }
 .ww-mark { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: #07110c; background: var(--ww-green); font-weight: 900; }
 .ww-nav { display: flex; align-items: center; gap: 0.45rem; color: var(--ww-muted); font-size: 0.9rem; font-weight: 690; }
 .ww-nav span { padding: 0.36rem 0.64rem; border-radius: 6px; }
 .ww-nav .active { color: #07110c; background: var(--ww-green); }
 
-.ww-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 0.8rem; }
+.ww-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 0.75rem; }
 .ww-kicker, .ww-map-label, .ww-plan-label, .ww-section-label { color: var(--ww-muted); font-size: 0.76rem; font-weight: 740; }
-.ww-title { margin: 0.05rem 0 0; color: var(--ww-text); font-size: 2.2rem; line-height: 1.04; font-weight: 820; }
+.ww-title { margin: 0.05rem 0 0; color: var(--ww-ink); font-size: 2.1rem; line-height: 1.04; font-weight: 820; letter-spacing: 0; }
+.ww-hero-copy { color: var(--ww-muted); margin-top: 0.35rem; font-size: 0.95rem; max-width: 780px; }
 .ww-status-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.45rem; }
 .ww-status { color: #dcead9; border: 1px solid rgba(168, 215, 168, 0.22); border-radius: 6px; background: rgba(168, 215, 168, 0.08); padding: 0.38rem 0.58rem; font-size: 0.82rem; font-weight: 720; }
 .ww-status.gold { color: #fff1bb; border-color: rgba(241, 199, 91, 0.35); background: rgba(241, 199, 91, 0.1); }
 
 .ww-map-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin: 0 0 0.48rem; }
-.ww-map-title { color: var(--ww-text); font-size: 1.04rem; font-weight: 780; }
+.ww-map-title { color: var(--ww-ink); font-size: 1.04rem; font-weight: 780; }
 .ww-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.42rem; }
 .ww-pill { display: inline-flex; align-items: center; gap: 0.32rem; padding: 0.24rem 0.42rem; border: 1px solid rgba(168, 215, 168, 0.17); border-radius: 6px; background: rgba(168, 215, 168, 0.08); color: #dcead9; font-size: 0.76rem; font-weight: 720; }
 .ww-dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
 
-.ww-panel-title { color: var(--ww-panel); font-size: 1.35rem; font-weight: 820; margin: 0 0 0.25rem; }
+.ww-panel-title { color: #f0e4b8; font-size: 1.28rem; font-weight: 820; margin: 0 0 0.25rem; }
 .ww-panel-copy { color: var(--ww-muted); font-size: 0.9rem; line-height: 1.42; margin: 0 0 0.8rem; }
-.ww-control-band { border: 1px solid rgba(168, 215, 168, 0.18); border-radius: 8px; padding: 0.75rem 0.85rem 0.45rem; margin-bottom: 0.75rem; background: rgba(16, 33, 24, 0.72); }
+.ww-control-band { border: 1px solid var(--ww-line); border-radius: 8px; padding: 0.75rem 0.85rem 0.45rem; margin-bottom: 0.75rem; background: rgba(16, 33, 24, 0.72); }
 .ww-source-list { display: grid; gap: 0.5rem; margin-top: 0.85rem; }
 .ww-source-item { color: rgba(243, 246, 239, 0.78); border-top: 1px solid rgba(168, 215, 168, 0.14); padding-top: 0.48rem; font-size: 0.82rem; line-height: 1.34; }
-.ww-source-item strong { color: var(--ww-text); }
+.ww-source-item strong { color: var(--ww-ink); }
 .ww-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.4rem; }
 .ww-plan-chip { color: rgba(243, 246, 239, 0.88); background: rgba(168, 215, 168, 0.08); border: 1px dashed rgba(168, 215, 168, 0.2); border-radius: 6px; padding: 0.45rem 0.55rem; font-size: 0.8rem; font-weight: 680; }
 
-.ww-sensor-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; margin: 0.6rem 0 0.8rem; }
-.ww-sensor-card { border: 1px solid rgba(168, 215, 168, 0.14); border-radius: 8px; padding: 0.65rem 0.75rem; background: rgba(16, 33, 24, 0.72); }
-.ww-sensor-card strong { color: var(--ww-text); display: block; font-size: 0.95rem; }
-.ww-sensor-card span { color: var(--ww-muted); font-size: 0.78rem; font-weight: 700; }
+.ww-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; margin: 0.55rem 0 0.85rem; }
+.ww-kpi { border: 1px solid rgba(168, 215, 168, 0.14); border-radius: 8px; padding: 0.64rem 0.74rem; background: rgba(16, 33, 24, 0.72); min-height: 72px; }
+.ww-kpi span { color: var(--ww-muted); font-size: 0.75rem; font-weight: 720; display: block; }
+.ww-kpi strong { color: var(--ww-ink); display: block; font-size: 0.94rem; margin-top: 0.22rem; line-height: 1.2; }
+
+.ww-insight-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.55rem; }
+.ww-insight { border: 1px solid rgba(168, 215, 168, 0.14); border-radius: 8px; padding: 0.72rem 0.82rem; background: rgba(16, 33, 24, 0.65); min-height: 112px; }
+.ww-insight span { display: block; color: var(--ww-muted); font-size: 0.74rem; font-weight: 740; margin-bottom: 0.22rem; }
+.ww-insight strong { display: block; color: var(--ww-ink); font-size: 0.95rem; margin-bottom: 0.32rem; }
+.ww-insight p { color: rgba(243, 246, 239, 0.78); margin: 0; font-size: 0.86rem; line-height: 1.35; }
+.ww-selected { border: 1px solid rgba(78, 168, 222, 0.35); border-radius: 8px; padding: 0.55rem 0.7rem; background: rgba(78, 168, 222, 0.1); color: #d9efff; margin: 0.55rem 0 0.75rem; font-size: 0.86rem; }
 
 [data-testid="stIFrame"] { border: 1px solid rgba(168, 215, 168, 0.22); border-radius: 8px; overflow: hidden; box-shadow: 0 20px 54px rgba(0, 0, 0, 0.34); }
-[data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight: 680; color: var(--ww-text) !important; }
+[data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label, [data-testid="stRadio"] label { font-weight: 680; color: var(--ww-ink) !important; }
 [data-testid="stTextArea"] textarea, [data-testid="stSelectbox"] div { border-color: rgba(168, 215, 168, 0.22) !important; }
 [data-testid="stAlert"] { border-radius: 8px; }
 
-@media (max-width: 1050px) {
+@media (max-width: 1120px) {
   .block-container { padding: 0.9rem 0.8rem 1.1rem; }
   .ww-topbar, .ww-hero, .ww-map-head { align-items: flex-start; flex-direction: column; }
   .ww-nav, .ww-status-row, .ww-legend { justify-content: flex-start; }
-  .ww-title { font-size: 1.85rem; }
-  .ww-sensor-grid { grid-template-columns: 1fr; }
+  .ww-title { font-size: 1.8rem; }
+  .ww-kpi-grid, .ww-insight-grid { grid-template-columns: 1fr; }
 }
 </style>
         """,
@@ -519,7 +604,7 @@ def get_dwd_archive_url(station_id: str, archive_kind: str) -> str:
     index_html = urllib.request.urlopen(f"{DWD_HISTORICAL_BASE_URL}/", timeout=12).read().decode(
         "utf-8", errors="ignore"
     )
-    pattern = rf"tageswerte_KL_{re.escape(station_id)}_[^\"'<>]*_hist\.zip"
+    pattern = rf"tageswerte_KL_{re.escape(station_id)}_.*?_hist\.zip"
     matches = sorted(set(re.findall(pattern, index_html)))
     if not matches:
         raise ValueError(f"No DWD historical climate archive found for station {station_id}.")
@@ -607,6 +692,58 @@ def get_dwd_readings_for_year(year: int) -> tuple[list[dict], int]:
         else:
             unavailable += 1
     return readings, unavailable
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def get_dwd_annual_series(station_id: str, start_year: int = 2000, end_year: int = 2026) -> list[dict]:
+    """Return annual DWD temperature and precipitation summary rows for one station."""
+    rows_by_date = {}
+    for archive_kind in ["historical", "recent"]:
+        try:
+            rows = fetch_dwd_rows(station_id, archive_kind)
+        except Exception:
+            continue
+        for row in rows:
+            date = row.get("MESS_DATUM", "")
+            if len(date) == 8:
+                rows_by_date[date] = row
+
+    buckets: dict[int, dict[str, list[float]]] = {}
+    for date, row in rows_by_date.items():
+        try:
+            year = int(date[:4])
+        except ValueError:
+            continue
+        if year < start_year or year > end_year:
+            continue
+        bucket = buckets.setdefault(year, {"temp": [], "precip": [], "humidity": []})
+        temp = dwd_float(row, "TMK")
+        precip = dwd_float(row, "RSK")
+        humidity = dwd_float(row, "UPM")
+        if temp is not None:
+            bucket["temp"].append(temp)
+        if precip is not None:
+            bucket["precip"].append(precip)
+        if humidity is not None:
+            bucket["humidity"].append(humidity)
+
+    series = []
+    for year in sorted(buckets):
+        bucket = buckets[year]
+        if not bucket["temp"]:
+            continue
+        series.append(
+            {
+                "Year": year,
+                "Mean temp C": round(sum(bucket["temp"]) / len(bucket["temp"]), 1),
+                "Precip mm": round(sum(bucket["precip"]), 1) if bucket["precip"] else None,
+                "Mean humidity %": round(sum(bucket["humidity"]) / len(bucket["humidity"]), 0)
+                if bucket["humidity"]
+                else None,
+                "Days": len(bucket["temp"]),
+            }
+        )
+    return series
 
 
 def estimate_soil_reading(site: dict, year: int) -> dict[str, float]:
@@ -764,14 +901,16 @@ def render_topbar() -> None:
     )
 
 
-def render_header(usage_mode: str, year: int, enabled_count: int, area_name: str) -> None:
+def render_header(usage_mode: str, year: int, enabled_count: int, area_name: str, view_mode: str) -> None:
     """Render the top application heading."""
+    lens_copy = VIEW_PRESETS[view_mode]["copy"]
     st.markdown(
         f"""
 <div class="ww-hero">
   <div>
     <div class="ww-kicker">Stakeholder view | {area_name}</div>
     <div class="ww-title">Forest Intelligence Map</div>
+    <div class="ww-hero-copy">{lens_copy}</div>
   </div>
   <div class="ww-status-row">
     <div class="ww-status">Earth Engine live</div>
@@ -785,43 +924,52 @@ def render_header(usage_mode: str, year: int, enabled_count: int, area_name: str
     )
 
 
-def render_layer_panel() -> tuple[int, str, str, dict[str, bool]]:
+def apply_view_preset(view_mode: str) -> None:
+    """Reset layer checkbox state when the exploration lens changes."""
+    if st.session_state.get("active_view_preset") == view_mode:
+        return
+    st.session_state["active_view_preset"] = view_mode
+    preset_layers = VIEW_PRESETS[view_mode]["layers"]
+    for layer_id, _, _ in LAYER_META:
+        st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
+
+
+def render_layer_panel() -> tuple[int, str, str, dict[str, bool], str]:
     """Render stakeholder controls and return selections."""
-    st.markdown("<div class='ww-panel-title'>Layers</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='ww-panel-copy'>Choose the evidence layers to show across Berchtesgaden National Park.</div>",
+        "<div class='ww-panel-copy'>Pick a lens, then refine the active evidence layers.</div>",
         unsafe_allow_html=True,
     )
 
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-section-label'>TIME</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-section-label'>LENS</div>", unsafe_allow_html=True)
+    view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0)
+    apply_view_preset(view_mode)
+    st.caption(VIEW_PRESETS[view_mode]["copy"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-section-label'>TIME AND MAP</div>", unsafe_allow_html=True)
     year = st.slider("Analysis year", min_value=2000, max_value=2026, value=2024)
     basemap = st.selectbox("Map style", ["Satellite", "Light", "Terrain"], index=0)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-section-label'>REAL DATA LAYERS</div>", unsafe_allow_html=True)
-    layers = {
-        "alphaearth": st.checkbox("Landscape patterns", value=True),
-        "tree_cover": st.checkbox("Tree canopy", value=False),
-        "tree_loss": st.checkbox("Tree-cover loss", value=True),
-        "water": st.checkbox("Water and wetlands", value=True),
-        "habitat": st.checkbox("Land-cover habitat", value=False),
-        "fire": st.checkbox("Burned area history", value=False),
-        "air_temperature": st.checkbox("Air temperature model", value=False),
-        "soil_moisture": st.checkbox("Soil moisture model", value=False),
-    }
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-section-label'>LOCAL OBSERVATIONS</div>", unsafe_allow_html=True)
-    layers["weather_sensors"] = st.checkbox("DWD weather stations", value=True)
-    layers["soil_sensors"] = st.checkbox("Soil probe prototype", value=True)
+    st.markdown("<div class='ww-section-label'>VISIBLE EVIDENCE</div>", unsafe_allow_html=True)
+    layers = {}
+    for layer_id, label, help_text in LAYER_META:
+        layers[layer_id] = st.checkbox(label, key=f"layer_{layer_id}", help=help_text)
     st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander("Custom AOI", expanded=False):
-        geojson_input: str = st.text_area("GeoJSON polygon", "", height=124, help="Leave blank to use Berchtesgaden National Park.")
-    return year, basemap, geojson_input, layers
+        geojson_input: str = st.text_area(
+            "GeoJSON polygon",
+            "",
+            height=124,
+            help="Leave blank to use Berchtesgaden National Park.",
+        )
+    return year, basemap, geojson_input, layers, view_mode
 
 
 def render_sources_panel() -> None:
@@ -855,35 +1003,40 @@ def render_planned_layers() -> None:
     )
 
 
-def render_observation_summary(year: int) -> None:
+def render_observation_summary(year: int, view_mode: str, layers: dict[str, bool]) -> None:
     """Show compact real DWD and prototype soil summaries."""
     try:
-        dwd_readings, _ = get_dwd_readings_for_year(year)
+        dwd_readings, unavailable = get_dwd_readings_for_year(year)
     except Exception:
         dwd_readings = []
+        unavailable = len(DWD_STATIONS)
 
     soil_readings = [estimate_soil_reading(site, year) for site in SOIL_SENSOR_SITES]
     avg_soil = round(sum(r["soil_moisture"] for r in soil_readings) / len(soil_readings), 1)
     avg_ph = round(sum(r["ph"] for r in soil_readings) / len(soil_readings), 2)
+    active_labels = [label for layer_id, label, _ in LAYER_META if layers.get(layer_id)]
 
     if dwd_readings:
         nearest = dwd_readings[0]
         weather_label = f"{format_number(nearest['mean_temp'], ' C')} at {nearest['name']}"
-        station_label = f"{len(dwd_readings)} DWD station(s) with {year} records"
+        station_label = f"{len(dwd_readings)} station(s), {unavailable} gap(s)"
     else:
         weather_label = f"No DWD station record for {year}"
-        station_label = "DWD station layer waits for available records"
+        station_label = "Station layer waiting for records"
 
     st.markdown(
         f"""
-<div class="ww-sensor-grid">
-  <div class="ww-sensor-card"><span>Real DWD weather</span><strong>{weather_label}</strong></div>
-  <div class="ww-sensor-card"><span>Station coverage</span><strong>{station_label}</strong></div>
-  <div class="ww-sensor-card"><span>Prototype soil</span><strong>{avg_soil}% moisture | pH {avg_ph}</strong></div>
+<div class="ww-kpi-grid">
+  <div class="ww-kpi"><span>Exploration lens</span><strong>{view_mode}</strong></div>
+  <div class="ww-kpi"><span>Real DWD weather</span><strong>{weather_label}</strong></div>
+  <div class="ww-kpi"><span>Station coverage</span><strong>{station_label}</strong></div>
+  <div class="ww-kpi"><span>Prototype soil</span><strong>{avg_soil}% moisture | pH {avg_ph}</strong></div>
 </div>
         """,
         unsafe_allow_html=True,
     )
+    if active_labels:
+        st.caption("Active evidence: " + ", ".join(active_labels))
 
 
 def render_map_heading(year: int, enabled_labels: list[tuple[str, str]], area_name: str) -> None:
@@ -1042,6 +1195,124 @@ def add_selected_layers(m: folium.Map, year: int, aoi: ee.Geometry, layers: dict
     return alphaearth_tile_count, notes
 
 
+def build_weather_table(year: int) -> pd.DataFrame:
+    """Build a station table for the selected analysis year."""
+    readings, _ = get_dwd_readings_for_year(year)
+    rows = []
+    for reading in readings:
+        rows.append(
+            {
+                "Station": reading["name"],
+                "Date": reading["date"],
+                "Distance km": reading["distance_km"],
+                "Elevation m": reading["elevation"],
+                "Mean temp C": reading["mean_temp"],
+                "Precip mm": reading["precipitation"],
+                "Humidity %": reading["humidity"],
+                "Wind m/s": reading["wind"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_insight_items(view_mode: str, year: int, layers: dict[str, bool], notes: list[str]) -> list[tuple[str, str, str]]:
+    """Create compact stakeholder insight cards from the current selections."""
+    items = [
+        (
+            "Lens",
+            view_mode,
+            VIEW_PRESETS[view_mode]["copy"],
+        )
+    ]
+    if layers.get("alphaearth"):
+        if year in ALPHAEARTH_YEARS:
+            items.append(("Landscape", "AlphaEarth active", "Embedding colors help reveal spatial pattern differences inside the park."))
+        else:
+            items.append(("Landscape", "AlphaEarth hidden", "AlphaEarth annual embeddings currently cover 2017-2024."))
+    if layers.get("tree_loss"):
+        items.append(("Forest change", "Cumulative loss", "The red layer marks Hansen tree-cover loss up to the selected year."))
+    if layers.get("water") or layers.get("soil_moisture"):
+        items.append(("Hydrology", "Water context", "Water and soil moisture layers help explain wetland edges and stress signals."))
+    if layers.get("weather_sensors"):
+        items.append(("Observations", "DWD stations", "Blue markers use official DWD daily climate records where records exist for the selected year."))
+    for note in notes[:2]:
+        items.append(("Data note", "Coverage", note))
+    return items[:6]
+
+
+def render_map_selection(map_state: Optional[dict]) -> None:
+    """Show simple feedback for the latest clicked map object."""
+    if not isinstance(map_state, dict):
+        return
+    clicked = map_state.get("last_object_clicked_tooltip") or map_state.get("last_object_clicked_popup")
+    if clicked:
+        st.markdown(
+            f"<div class='ww-selected'><strong>Selected on map:</strong> {clicked}</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_evidence_board(year: int, view_mode: str, layers: dict[str, bool], notes: list[str]) -> None:
+    """Render interactive evidence panels below the map."""
+    insights_tab, weather_tab, station_tab, sources_tab = st.tabs(
+        ["Insights", "Weather trend", "Station table", "Sources"]
+    )
+
+    with insights_tab:
+        items = build_insight_items(view_mode, year, layers, notes)
+        markup = "".join(
+            f"""
+<div class="ww-insight">
+  <span>{eyebrow}</span>
+  <strong>{title}</strong>
+  <p>{body}</p>
+</div>
+            """
+            for eyebrow, title, body in items
+        )
+        st.markdown(f"<div class='ww-insight-grid'>{markup}</div>", unsafe_allow_html=True)
+
+    with weather_tab:
+        default_index = next((idx for idx, station in enumerate(DWD_STATIONS) if station["id"] == "00856"), 0)
+        station = st.selectbox(
+            "Weather trend station",
+            DWD_STATIONS,
+            index=default_index,
+            format_func=lambda item: f"{item['name']} ({item['distance_km']} km)",
+        )
+        series = get_dwd_annual_series(station["id"])
+        if not series:
+            st.info("No annual DWD trend records are available for this station in the 2000-2026 window.")
+        else:
+            df = pd.DataFrame(series)
+            selected = df[df["Year"] == year]
+            if selected.empty:
+                st.caption(f"No annual summary is available for {station['name']} in {year}.")
+            else:
+                row = selected.iloc[0]
+                st.caption(
+                    f"{station['name']} in {year}: {row['Mean temp C']} C mean temp, "
+                    f"{row['Precip mm']} mm precipitation, {int(row['Days'])} observed day(s)."
+                )
+            temp_col, precip_col = st.columns(2)
+            chart_df = df.set_index("Year")
+            with temp_col:
+                st.line_chart(chart_df[["Mean temp C"]], height=240)
+            with precip_col:
+                st.bar_chart(chart_df[["Precip mm"]], height=240)
+
+    with station_tab:
+        weather_df = build_weather_table(year)
+        if weather_df.empty:
+            st.info(f"No configured DWD station has a daily climate record for {year}.")
+        else:
+            st.dataframe(weather_df, use_container_width=True, hide_index=True)
+
+    with sources_tab:
+        render_sources_panel()
+        render_planned_layers()
+
+
 def main() -> None:
     """Render the Streamlit user interface and map."""
     st.set_page_config(
@@ -1058,7 +1329,7 @@ def main() -> None:
     left, right = st.columns([3.35, 1.0], gap="large")
 
     with right:
-        year, basemap, geojson_input, layers = render_layer_panel()
+        year, basemap, geojson_input, layers, view_mode = render_layer_panel()
         render_sources_panel()
         render_planned_layers()
 
@@ -1066,8 +1337,8 @@ def main() -> None:
     aoi, area_name = get_aoi(geojson_input)
 
     with left:
-        render_header(usage_mode, year, enabled_count, area_name)
-        render_observation_summary(year)
+        render_header(usage_mode, year, enabled_count, area_name, view_mode)
+        render_observation_summary(year, view_mode, layers)
 
         try:
             center, bounds = get_aoi_view(aoi)
@@ -1079,7 +1350,8 @@ def main() -> None:
 
         folium.LayerControl(position="topright", collapsed=True).add_to(m)
         render_map_heading(year, get_enabled_labels(layers), area_name)
-        st_folium(m, width=None, height=760)
+        map_state = st_folium(m, width=None, height=760)
+        render_map_selection(map_state)
 
         captions = [
             "Visible map layers are public Earth Engine datasets, DWD daily climate observations, "
@@ -1089,6 +1361,7 @@ def main() -> None:
             captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
         captions.extend(notes)
         st.caption(" ".join(captions))
+        render_evidence_board(year, view_mode, layers, notes)
 
 
 if __name__ == "__main__":
