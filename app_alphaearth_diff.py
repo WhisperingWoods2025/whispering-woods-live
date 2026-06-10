@@ -77,14 +77,33 @@ def enforce_no_cost_guardrail() -> str:
     return usage_mode
 
 
-def show_earth_engine_error(message: str, exc: Exception) -> None:
-    """Display Earth Engine failures without triggering Streamlit's redacted traceback."""
-    st.error(message)
-    st.caption(
+def get_earth_engine_error_help(error_text: str) -> str:
+    """Return a practical setup hint for common Earth Engine IAM errors."""
+    if "earthengine.maps.create" in error_text:
+        return (
+            "The service account can reach Earth Engine, but live map rendering needs "
+            "Earth Engine Resource Writer (`roles/earthengine.writer`) on this project. "
+            "Keep Service Usage Consumer too. This role enables map tile creation; this app "
+            "still does not export files, write Earth Engine assets, or create cloud resources."
+        )
+    if "earthengine.computations.create" in error_text:
+        return (
+            "The service account needs an Earth Engine project role. Add Earth Engine Resource "
+            "Viewer (`roles/earthengine.viewer`) or Earth Engine Resource Writer "
+            "(`roles/earthengine.writer`) on this project, and keep Service Usage Consumer."
+        )
+    return (
         "This is usually a project permission, Earth Engine registration, API enablement, "
         "or dataset/AOI availability issue. The app stopped before rendering the map."
     )
-    st.code(str(exc), language="text")
+
+
+def show_earth_engine_error(message: str, exc: Exception) -> None:
+    """Display Earth Engine failures without triggering Streamlit's redacted traceback."""
+    error_text = str(exc)
+    st.error(message)
+    st.caption(get_earth_engine_error_help(error_text))
+    st.code(error_text, language="text")
     st.stop()
 
 
