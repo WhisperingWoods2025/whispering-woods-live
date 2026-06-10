@@ -1,4 +1,4 @@
-"""Streamlit application to visualize AlphaEarth embeddings for a chosen AOI."""
+"""Stakeholder-facing Whispering Woods forest layer explorer."""
 
 import json
 from typing import Optional
@@ -20,8 +20,14 @@ except ImportError as exc:
 
 
 EMBEDDING_COLLECTION_ID = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
+HANSEN_COLLECTION_ID = "UMD/hansen/global_forest_change_2025_v1_13"
+SURFACE_WATER_COLLECTION_ID = "JRC/GSW1_4/GlobalSurfaceWater"
+WORLDCOVER_COLLECTION_ID = "ESA/WorldCover/v200"
+BURNED_AREA_COLLECTION_ID = "MODIS/061/MCD64A1"
+
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
-AOI_COLOR = "#D7A84E"
+AOI_COLOR = "#F1C75B"
+AVAILABLE_YEARS = list(range(2017, 2025))
 
 _COSTED_USAGE_MODES = {
     "billable",
@@ -34,20 +40,23 @@ _COSTED_USAGE_MODES = {
 
 
 def inject_theme_css() -> None:
-    """Apply a compact visual system on top of Streamlit defaults."""
+    """Apply the stakeholder-facing Whispering Woods visual system."""
     st.markdown(
         """
 <style>
 :root {
-  --ww-bg: #0c1410;
-  --ww-panel: #121d17;
-  --ww-panel-2: #17241d;
-  --ww-line: #284033;
-  --ww-text: #eef4ed;
-  --ww-muted: #9faf9f;
-  --ww-accent: #8ebf75;
-  --ww-gold: #d7a84e;
-  --ww-copper: #b96f4c;
+  --ww-bg: #07110c;
+  --ww-nav: #07100b;
+  --ww-panel: #f0e4b8;
+  --ww-panel-text: #203427;
+  --ww-text: #f3f6ef;
+  --ww-muted: #9fb29f;
+  --ww-line: #1e3929;
+  --ww-green: #a8d7a8;
+  --ww-deep: #102118;
+  --ww-gold: #f1c75b;
+  --ww-red: #d9624b;
+  --ww-blue: #4ea8de;
 }
 
 [data-testid="stAppViewContainer"] {
@@ -56,187 +65,298 @@ def inject_theme_css() -> None:
 }
 
 [data-testid="stHeader"] {
-  background: rgba(12, 20, 16, 0.92);
-  border-bottom: 1px solid rgba(142, 191, 117, 0.12);
-}
-
-.block-container {
-  max-width: 1540px;
-  padding: 2.25rem 2.5rem 2rem;
+  background: rgba(7, 17, 12, 0.92);
+  border-bottom: 1px solid rgba(168, 215, 168, 0.12);
 }
 
 [data-testid="stSidebar"] {
-  background: #101914;
-  border-right: 1px solid var(--ww-line);
+  background: #07110c;
 }
 
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-  gap: 0.85rem;
+.block-container {
+  max-width: 1760px;
+  padding: 1.1rem 1.6rem 1.2rem;
 }
 
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] p {
-  color: var(--ww-text);
-}
-
-[data-testid="stSidebar"] label {
-  font-size: 0.9rem;
-  font-weight: 650;
-}
-
-[data-testid="stSelectbox"] div,
-[data-testid="stTextArea"] textarea {
-  border-color: rgba(142, 191, 117, 0.18) !important;
-}
-
-[data-testid="stTextArea"] textarea {
-  min-height: 132px;
-}
-
-.ww-header {
+.ww-topbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 1.35rem;
+  min-height: 48px;
+  margin: -0.2rem 0 1.1rem;
+  padding: 0.45rem 0.85rem;
+  background: #07100b;
+  border: 1px solid rgba(168, 215, 168, 0.16);
+  border-radius: 8px;
+}
+
+.ww-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ww-text);
+  font-weight: 780;
+  font-size: 1.02rem;
+}
+
+.ww-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: #07110c;
+  background: var(--ww-green);
+  font-weight: 900;
+}
+
+.ww-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ww-muted);
+  font-size: 0.9rem;
+  font-weight: 690;
+}
+
+.ww-nav span {
+  padding: 0.36rem 0.64rem;
+  border-radius: 6px;
+}
+
+.ww-nav .active {
+  color: #07110c;
+  background: var(--ww-green);
+}
+
+.ww-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
 }
 
 .ww-kicker,
-.ww-side-kicker,
-.ww-metric-label,
-.ww-map-label {
+.ww-label,
+.ww-layer-source,
+.ww-map-label,
+.ww-plan-label {
   color: var(--ww-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 740;
 }
 
 .ww-title {
-  margin: 0.1rem 0 0;
+  margin: 0.05rem 0 0;
   color: var(--ww-text);
-  font-size: 2.55rem;
-  line-height: 1.05;
-  font-weight: 760;
+  font-size: 2.2rem;
+  line-height: 1.04;
+  font-weight: 820;
 }
 
 .ww-status-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .ww-status {
-  border: 1px solid rgba(142, 191, 117, 0.22);
+  color: #dcead9;
+  border: 1px solid rgba(168, 215, 168, 0.22);
   border-radius: 6px;
-  color: #dfead9;
-  background: rgba(142, 191, 117, 0.08);
+  background: rgba(168, 215, 168, 0.08);
+  padding: 0.38rem 0.58rem;
   font-size: 0.82rem;
-  font-weight: 650;
-  padding: 0.42rem 0.62rem;
+  font-weight: 720;
 }
 
 .ww-status.gold {
-  border-color: rgba(215, 168, 78, 0.36);
-  background: rgba(215, 168, 78, 0.12);
+  color: #fff1bb;
+  border-color: rgba(241, 199, 91, 0.35);
+  background: rgba(241, 199, 91, 0.1);
 }
 
-.ww-side-title {
-  color: var(--ww-text);
-  font-size: 1.35rem;
-  font-weight: 760;
-  margin: 0.3rem 0 0.1rem;
-}
-
-.ww-side-note {
-  color: var(--ww-muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  border-left: 2px solid var(--ww-gold);
-  padding: 0.1rem 0 0.1rem 0.7rem;
-}
-
-.ww-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 0.75rem 0 1rem;
-}
-
-.ww-metric {
-  background: linear-gradient(180deg, rgba(23, 36, 29, 0.96), rgba(18, 29, 23, 0.96));
-  border: 1px solid rgba(142, 191, 117, 0.14);
-  border-radius: 8px;
-  padding: 0.85rem 0.9rem;
-}
-
-.ww-metric strong {
-  display: block;
-  color: var(--ww-text);
-  font-size: 1.1rem;
-  line-height: 1.2;
-  margin-top: 0.25rem;
+.ww-map-frame {
+  margin-top: 0.55rem;
 }
 
 .ww-map-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin: 1.15rem 0 0.6rem;
+  gap: 0.8rem;
+  margin: 0 0 0.48rem;
 }
 
 .ww-map-title {
   color: var(--ww-text);
-  font-size: 1.12rem;
-  font-weight: 760;
+  font-size: 1.04rem;
+  font-weight: 780;
 }
 
-.ww-band-list {
-  color: var(--ww-muted);
-  font-size: 0.88rem;
+.ww-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.42rem;
 }
 
-.ww-band-list code {
-  color: #bfe5ad;
-  background: rgba(142, 191, 117, 0.12);
-  border: 1px solid rgba(142, 191, 117, 0.15);
-  border-radius: 5px;
-  padding: 0.12rem 0.32rem;
+.ww-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.24rem 0.42rem;
+  border: 1px solid rgba(168, 215, 168, 0.17);
+  border-radius: 6px;
+  background: rgba(168, 215, 168, 0.08);
+  color: #dcead9;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.ww-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.ww-timeline {
+  margin: 0.7rem 0 0.4rem;
+  padding: 0.7rem 0.85rem 0.8rem;
+  border: 1px solid rgba(168, 215, 168, 0.16);
+  border-radius: 8px;
+  background: rgba(16, 33, 24, 0.72);
+}
+
+.ww-side-panel {
+  color: var(--ww-panel-text);
+  background: var(--ww-panel);
+  border-radius: 10px;
+  border: 1px solid rgba(241, 199, 91, 0.45);
+  padding: 1rem 1.05rem 1.1rem;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.ww-side-panel h3 {
+  color: var(--ww-panel-text);
+  margin: 0 0 0.1rem;
+  font-size: 1.32rem;
+}
+
+.ww-side-panel p {
+  color: rgba(32, 52, 39, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.42;
+  margin: 0.2rem 0 0.75rem;
+}
+
+.ww-section-label {
+  color: rgba(32, 52, 39, 0.72);
+  font-size: 0.78rem;
+  font-weight: 780;
+  margin: 0.8rem 0 0.35rem;
+}
+
+.ww-source-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.ww-source-item {
+  color: rgba(32, 52, 39, 0.8);
+  border-top: 1px solid rgba(32, 52, 39, 0.13);
+  padding-top: 0.48rem;
+  font-size: 0.82rem;
+  line-height: 1.34;
+}
+
+.ww-source-item strong {
+  color: var(--ww-panel-text);
+}
+
+.ww-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+}
+
+.ww-plan-chip {
+  color: rgba(243, 246, 239, 0.88);
+  background: rgba(168, 215, 168, 0.08);
+  border: 1px dashed rgba(168, 215, 168, 0.2);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 680;
 }
 
 [data-testid="stIFrame"] {
-  border: 1px solid rgba(142, 191, 117, 0.2);
+  border: 1px solid rgba(168, 215, 168, 0.22);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.34);
+}
+
+[data-testid="stCheckbox"] label,
+[data-testid="stSlider"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stSelectbox"] label {
+  font-weight: 680;
+}
+
+[data-testid="stCheckbox"] label {
+  color: rgba(32, 52, 39, 0.96) !important;
+}
+
+[data-testid="stSlider"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stSelectbox"] label {
+  color: var(--ww-text) !important;
+}
+
+.ww-side-panel [data-testid="stCheckbox"] label,
+.ww-side-panel [data-testid="stSlider"] label {
+  color: var(--ww-panel-text) !important;
+}
+
+.ww-side-panel [data-testid="stMarkdownContainer"] p {
+  color: rgba(32, 52, 39, 0.78);
+}
+
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] div {
+  border-color: rgba(168, 215, 168, 0.22) !important;
 }
 
 [data-testid="stAlert"] {
   border-radius: 8px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1050px) {
   .block-container {
-    padding: 1.25rem 1rem 1.5rem;
+    padding: 0.9rem 0.8rem 1.1rem;
   }
 
-  .ww-header,
+  .ww-topbar,
+  .ww-hero,
   .ww-map-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .ww-status-row {
+  .ww-nav,
+  .ww-status-row,
+  .ww-legend {
     justify-content: flex-start;
   }
 
   .ww-title {
-    font-size: 2rem;
-  }
-
-  .ww-metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    font-size: 1.85rem;
   }
 }
 </style>
@@ -344,7 +464,6 @@ def _build_service_account_key_data(
 
 def init_ee() -> None:
     """Initialise Earth Engine using service-account credentials from Streamlit secrets."""
-
     service_account = _read_secret("EE_SERVICE_ACCOUNT")
     private_key_secret = _read_secret("EE_PRIVATE_KEY")
     project_id = _read_secret("EE_PROJECT_ID")
@@ -387,7 +506,6 @@ def _init_ee_cached() -> None:
 
 def get_aoi(geojson_str: str) -> ee.Geometry:
     """Return the AOI geometry from a GeoJSON string or a default bounding box."""
-
     if geojson_str:
         try:
             geo = json.loads(geojson_str)
@@ -398,7 +516,7 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
                 return ee.Geometry(geo["geometry"])
             return ee.Geometry(geo)
         except Exception:
-            st.warning("Invalid GeoJSON provided. Falling back to default AOI.")
+            st.warning("Invalid GeoJSON provided. Falling back to Koenigssee.")
 
     default_coords = [
         [12.95, 47.55],
@@ -417,9 +535,8 @@ def get_aoi_view(aoi: ee.Geometry) -> tuple[list[float], list[list[float]]]:
     return [centroid[1], centroid[0]], [[lat, lon] for lon, lat in bounds_coords]
 
 
-def get_embedding_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
-    """Retrieve and mosaic embedding tiles for the given year and AOI."""
-
+def get_alphaearth_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
+    """Retrieve and mosaic AlphaEarth embedding tiles for the given year and AOI."""
     collection = (
         ee.ImageCollection(EMBEDDING_COLLECTION_ID)
         .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
@@ -431,7 +548,53 @@ def get_embedding_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
     return collection.mosaic().clip(aoi), tile_count
 
 
-def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) -> None:
+def get_hansen_image() -> ee.Image:
+    """Return the current Hansen Global Forest Change image."""
+    return ee.Image(HANSEN_COLLECTION_ID)
+
+
+def get_tree_cover_layer(aoi: ee.Geometry) -> ee.Image:
+    """Return year-2000 canopy cover from Hansen."""
+    return get_hansen_image().select("treecover2000").updateMask(
+        get_hansen_image().select("treecover2000").gte(20)
+    ).clip(aoi)
+
+
+def get_tree_loss_layer(year: int, aoi: ee.Geometry) -> ee.Image:
+    """Return cumulative tree-cover loss up to the selected year."""
+    loss_year = get_hansen_image().select("lossyear")
+    max_loss_year = max(1, min(year - 2000, 25))
+    return loss_year.gt(0).And(loss_year.lte(max_loss_year)).selfMask().clip(aoi)
+
+
+def get_surface_water_layer(aoi: ee.Geometry) -> ee.Image:
+    """Return recurring surface water from JRC Global Surface Water."""
+    occurrence = ee.Image(SURFACE_WATER_COLLECTION_ID).select("occurrence")
+    return occurrence.updateMask(occurrence.gte(10)).clip(aoi)
+
+
+def get_worldcover_layer(aoi: ee.Geometry) -> ee.Image:
+    """Return ESA WorldCover land-cover classes."""
+    return ee.ImageCollection(WORLDCOVER_COLLECTION_ID).first().select("Map").clip(aoi)
+
+
+def get_burned_area_layer(year: int, aoi: ee.Geometry) -> ee.Image:
+    """Return MODIS burned-area observations for the selected year."""
+    collection = (
+        ee.ImageCollection(BURNED_AREA_COLLECTION_ID)
+        .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
+        .select("BurnDate")
+    )
+    return collection.max().selfMask().clip(aoi)
+
+
+def add_ee_layer(
+    m: folium.Map,
+    image: ee.Image,
+    vis_params: dict,
+    name: str,
+    opacity: float = 0.85,
+) -> None:
     """Add an Earth Engine image as a Folium tile layer."""
     map_id = image.getMapId(vis_params)
     folium.TileLayer(
@@ -440,7 +603,7 @@ def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) ->
         name=name,
         overlay=True,
         control=True,
-        opacity=0.88,
+        opacity=opacity,
     ).add_to(m)
 
 
@@ -448,61 +611,61 @@ def add_aoi_boundary(m: folium.Map, aoi: ee.Geometry, color: str = AOI_COLOR) ->
     """Add AOI boundary to a Folium map as a non-filled outline."""
     folium.GeoJson(
         aoi.getInfo(),
-        name="AOI boundary",
+        name="Conservation area",
         style_function=lambda _: {
             "color": color,
             "weight": 2.5,
             "fillOpacity": 0,
-            "opacity": 0.95,
+            "opacity": 0.96,
         },
     ).add_to(m)
 
 
-def build_map(center: list[float], bounds: list[list[float]]) -> folium.Map:
+def build_map(center: list[float], bounds: list[list[float]], basemap: str) -> folium.Map:
     """Create the map surface and focus it on the AOI."""
-    m = folium.Map(location=center, zoom_start=11, tiles=None, control_scale=True)
-    folium.TileLayer("CartoDB positron", name="Base map", control=False).add_to(m)
-    m.fit_bounds(bounds, padding=(26, 26))
+    m = folium.Map(location=center, zoom_start=12, tiles=None, control_scale=True)
+    if basemap == "Satellite":
+        folium.TileLayer(
+            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            attr="Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+            name="Satellite",
+            control=False,
+        ).add_to(m)
+    elif basemap == "Terrain":
+        folium.TileLayer("OpenTopoMap", name="Terrain", control=False).add_to(m)
+    else:
+        folium.TileLayer("CartoDB positron", name="Light map", control=False).add_to(m)
+    m.fit_bounds(bounds, padding=(24, 24))
     return m
 
 
-def render_sidebar() -> tuple[int, str]:
-    """Render controls and return selected inputs."""
-    with st.sidebar:
-        st.markdown(
-            """
-<div class="ww-side-kicker">Whispering Woods</div>
-<div class="ww-side-title">Embedding Explorer</div>
-            """,
-            unsafe_allow_html=True,
-        )
-        year = st.selectbox("Year", options=list(range(2017, 2025)), index=2024 - 2017)
-        geojson_input: str = st.text_area(
-            "AOI GeoJSON",
-            "",
-            height=132,
-            help="Paste a GeoJSON polygon to replace the default AOI.",
-        )
-        st.markdown(
-            "<div class='ww-side-note'>Default AOI: Koenigssee, Bavaria.</div>",
-            unsafe_allow_html=True,
-        )
-    return year, geojson_input
+def render_topbar() -> None:
+    """Render app navigation."""
+    st.markdown(
+        """
+<div class="ww-topbar">
+  <div class="ww-brand"><div class="ww-mark">W</div><span>Whispering Woods</span></div>
+  <div class="ww-nav"><span class="active">Forest Map</span><span>Species Monitoring</span><span>3D View</span></div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def render_header(usage_mode: str, year: int) -> None:
+def render_header(usage_mode: str, year: int, enabled_count: int) -> None:
     """Render the top application heading."""
     st.markdown(
         f"""
-<div class="ww-header">
+<div class="ww-hero">
   <div>
-    <div class="ww-kicker">Whispering Woods</div>
-    <div class="ww-title">AlphaEarth Embeddings</div>
+    <div class="ww-kicker">Stakeholder view</div>
+    <div class="ww-title">Forest Intelligence Map</div>
   </div>
   <div class="ww-status-row">
     <div class="ww-status">Earth Engine live</div>
     <div class="ww-status gold">{usage_mode}</div>
     <div class="ww-status">{year}</div>
+    <div class="ww-status">{enabled_count} layers</div>
   </div>
 </div>
         """,
@@ -510,70 +673,232 @@ def render_header(usage_mode: str, year: int) -> None:
     )
 
 
-def render_metric_grid(year: int, tile_count: int, usage_mode: str) -> None:
-    """Render compact context metrics."""
-    bands = " / ".join(DEFAULT_RGB_BANDS)
+def render_layer_panel() -> tuple[int, str, str, dict[str, bool]]:
+    """Render stakeholder controls and return selections."""
     st.markdown(
-        f"""
-<div class="ww-metric-grid">
-  <div class="ww-metric"><div class="ww-metric-label">Year</div><strong>{year}</strong></div>
-  <div class="ww-metric"><div class="ww-metric-label">AOI Tiles</div><strong>{tile_count}</strong></div>
-  <div class="ww-metric"><div class="ww-metric-label">RGB Bands</div><strong>{bands}</strong></div>
-  <div class="ww-metric"><div class="ww-metric-label">Usage Mode</div><strong>{usage_mode}</strong></div>
+        """
+<div class="ww-side-panel">
+  <h3>Layers</h3>
+  <p>Choose the evidence layers to show on the conservation map.</p>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='ww-section-label'>TIME</div>", unsafe_allow_html=True)
+    year = st.slider("Analysis year", min_value=min(AVAILABLE_YEARS), max_value=max(AVAILABLE_YEARS), value=2024)
+    basemap = st.selectbox("Map style", ["Light", "Satellite", "Terrain"], index=1)
+
+    st.markdown("<div class='ww-section-label'>REAL DATA LAYERS</div>", unsafe_allow_html=True)
+    layers = {
+        "alphaearth": st.checkbox("Landscape patterns", value=True),
+        "tree_cover": st.checkbox("Tree canopy", value=False),
+        "tree_loss": st.checkbox("Tree-cover loss", value=True),
+        "water": st.checkbox("Water and wetlands", value=True),
+        "habitat": st.checkbox("Land-cover habitat", value=False),
+        "fire": st.checkbox("Burned area history", value=False),
+    }
+
+    st.markdown("<div class='ww-section-label'>AREA</div>", unsafe_allow_html=True)
+    with st.expander("Custom AOI", expanded=False):
+        geojson_input: str = st.text_area(
+            "GeoJSON polygon",
+            "",
+            height=124,
+            help="Leave blank to use Koenigssee.",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+    return year, basemap, geojson_input, layers
+
+
+def render_sources_panel() -> None:
+    """Render concise source notes for stakeholder transparency."""
+    st.markdown(
+        """
+<div class="ww-source-list">
+  <div class="ww-source-item"><strong>AlphaEarth</strong><br>Annual satellite embeddings for landscape pattern exploration.</div>
+  <div class="ww-source-item"><strong>Hansen forest change</strong><br>Tree canopy and loss-year evidence from Landsat-derived global forest change.</div>
+  <div class="ww-source-item"><strong>JRC surface water</strong><br>Long-term water occurrence for lakes, rivers, and recurring wetlands.</div>
+  <div class="ww-source-item"><strong>ESA WorldCover</strong><br>10 m land-cover classes used as a habitat context layer.</div>
+  <div class="ww-source-item"><strong>MODIS burned area</strong><br>Monthly burned-area observations for the selected year.</div>
 </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_map_heading(year: int) -> None:
-    """Render the map section heading."""
+def render_planned_layers() -> None:
+    """Show planned data categories without pretending they are active data."""
+    st.markdown(
+        """
+<div class="ww-plan-label">Planned integrations</div>
+<div class="ww-plan-grid">
+  <div class="ww-plan-chip">Inventory trees</div>
+  <div class="ww-plan-chip">Species observations</div>
+  <div class="ww-plan-chip">Soil and field samples</div>
+  <div class="ww-plan-chip">Local weather sensors</div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_map_heading(year: int, enabled_labels: list[str]) -> None:
+    """Render the map section heading and active layer legend."""
+    legend_markup = "".join(
+        f"<span class='ww-pill'><span class='ww-dot' style='background:{color}'></span>{label}</span>"
+        for label, color in enabled_labels
+    )
     st.markdown(
         f"""
 <div class="ww-map-head">
   <div>
-    <div class="ww-map-label">AOI View</div>
-    <div class="ww-map-title">AlphaEarth annual embedding, {year}</div>
+    <div class="ww-map-label">Koenigssee conservation area</div>
+    <div class="ww-map-title">Forest evidence layers, {year}</div>
   </div>
-  <div class="ww-band-list"><code>A01</code> <code>A16</code> <code>A09</code></div>
+  <div class="ww-legend">{legend_markup}</div>
 </div>
         """,
         unsafe_allow_html=True,
     )
 
 
+def get_enabled_labels(layers: dict[str, bool]) -> list[tuple[str, str]]:
+    """Return labels for the visible map legend."""
+    labels = []
+    if layers["alphaearth"]:
+        labels.append(("Landscape patterns", "#55d68a"))
+    if layers["tree_cover"]:
+        labels.append(("Tree canopy", "#2c8c4a"))
+    if layers["tree_loss"]:
+        labels.append(("Tree-cover loss", "#d9624b"))
+    if layers["water"]:
+        labels.append(("Water", "#4ea8de"))
+    if layers["habitat"]:
+        labels.append(("Habitat", "#b8d86b"))
+    if layers["fire"]:
+        labels.append(("Burned area", "#ff9f1c"))
+    return labels or [("AOI boundary", AOI_COLOR)]
+
+
+def add_selected_layers(
+    m: folium.Map,
+    year: int,
+    aoi: ee.Geometry,
+    layers: dict[str, bool],
+) -> int:
+    """Add selected Earth Engine layers and return AlphaEarth tile count."""
+    alphaearth_tile_count = 0
+    if layers["alphaearth"]:
+        alphaearth, alphaearth_tile_count = get_alphaearth_image(year, aoi)
+        add_ee_layer(
+            m,
+            alphaearth,
+            {"bands": DEFAULT_RGB_BANDS, "min": -0.3, "max": 0.3},
+            "Landscape patterns",
+            opacity=0.78,
+        )
+    if layers["tree_cover"]:
+        add_ee_layer(
+            m,
+            get_tree_cover_layer(aoi),
+            {"min": 20, "max": 95, "palette": ["#d5e8bd", "#2c8c4a", "#0e4f2e"]},
+            "Tree canopy",
+            opacity=0.5,
+        )
+    if layers["tree_loss"]:
+        add_ee_layer(
+            m,
+            get_tree_loss_layer(year, aoi),
+            {"min": 1, "max": 1, "palette": ["#d9624b"]},
+            "Tree-cover loss",
+            opacity=0.88,
+        )
+    if layers["water"]:
+        add_ee_layer(
+            m,
+            get_surface_water_layer(aoi),
+            {"min": 10, "max": 100, "palette": ["#bde7ff", "#4ea8de", "#075985"]},
+            "Water and wetlands",
+            opacity=0.72,
+        )
+    if layers["habitat"]:
+        add_ee_layer(
+            m,
+            get_worldcover_layer(aoi),
+            {
+                "min": 10,
+                "max": 100,
+                "palette": [
+                    "#006400",
+                    "#ffbb22",
+                    "#ffff4c",
+                    "#f096ff",
+                    "#fa0000",
+                    "#b4b4b4",
+                    "#f0f0f0",
+                    "#0064c8",
+                    "#0096a0",
+                    "#00cf75",
+                    "#fae6a0",
+                ],
+            },
+            "Land-cover habitat",
+            opacity=0.42,
+        )
+    if layers["fire"]:
+        add_ee_layer(
+            m,
+            get_burned_area_layer(year, aoi),
+            {"min": 1, "max": 366, "palette": ["#ffdd8a", "#ff9f1c", "#bd1f36"]},
+            "Burned area history",
+            opacity=0.86,
+        )
+    return alphaearth_tile_count
+
+
 def main() -> None:
     """Render the Streamlit user interface and map."""
-    st.set_page_config(page_title="Whispering Woods AlphaEarth", layout="wide")
+    st.set_page_config(
+        page_title="Whispering Woods Forest Map",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
     inject_theme_css()
 
     usage_mode = enforce_no_cost_guardrail()
     _init_ee_cached()
-    year, geojson_input = render_sidebar()
-    render_header(usage_mode, year)
 
-    aoi = get_aoi(geojson_input)
+    render_topbar()
+    left, right = st.columns([3.35, 1.0], gap="large")
 
-    try:
-        image, tile_count = get_embedding_image(year, aoi)
-        center, bounds = get_aoi_view(aoi)
-    except Exception as exc:
-        show_earth_engine_error("Earth Engine could not prepare the selected AOI/year.", exc)
+    with right:
+        year, basemap, geojson_input, layers = render_layer_panel()
+        render_sources_panel()
+        render_planned_layers()
 
-    render_metric_grid(year, tile_count, usage_mode)
+    enabled_count = sum(1 for enabled in layers.values() if enabled)
+    with left:
+        render_header(usage_mode, year, enabled_count)
 
-    rgb_vis = {"bands": DEFAULT_RGB_BANDS, "min": -0.3, "max": 0.3}
-    m = build_map(center, bounds)
-    try:
-        add_ee_layer(m, image, rgb_vis, f"{year} embedding")
-        add_aoi_boundary(m, aoi)
-    except Exception as exc:
-        show_earth_engine_error("Earth Engine could not render the map layer.", exc)
+        aoi = get_aoi(geojson_input)
+        try:
+            center, bounds = get_aoi_view(aoi)
+            m = build_map(center, bounds, basemap)
+            alphaearth_tile_count = add_selected_layers(m, year, aoi, layers)
+            add_aoi_boundary(m, aoi)
+        except Exception as exc:
+            show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
 
-    folium.LayerControl(position="topright", collapsed=True).add_to(m)
+        folium.LayerControl(position="topright", collapsed=True).add_to(m)
+        render_map_heading(year, get_enabled_labels(layers))
+        st_folium(m, width=None, height=760)
 
-    render_map_heading(year)
-    st_folium(m, width=None, height=720)
+        if layers["alphaearth"]:
+            st.caption(
+                f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI. "
+                "All visible layers are public Earth Engine datasets rendered in read-only mode."
+            )
+        else:
+            st.caption("Visible layers are public Earth Engine datasets rendered in read-only mode.")
 
 
 if __name__ == "__main__":
