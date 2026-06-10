@@ -388,15 +388,27 @@ def get_dwd_daily_reading(station: dict, year: int) -> Optional[dict]:
             rows = fetch_dwd_rows(station["id"], archive_kind)
         except Exception:
             continue
-        candidates = [row for row in rows if row.get("MESS_DATUM", "").startswith(str(year)) and dwd_float(row, "TMK") is not None]
+        candidates = [row for row in rows if row.get("MESS_DATUM", "").startswith(str(year))]
         if not candidates:
             continue
-        row = candidates[-1]
+        row = max(candidates, key=lambda item: item.get("MESS_DATUM", ""))
         return {
-            "station_id": station["id"], "name": station["name"], "state": station["state"], "lat": station["lat"], "lon": station["lon"],
-            "elevation": station["elevation"], "distance_km": station["distance_km"], "date": format_dwd_date(row.get("MESS_DATUM", "")),
-            "archive_kind": archive_kind, "mean_temp": dwd_float(row, "TMK"), "max_temp": dwd_float(row, "TXK"), "min_temp": dwd_float(row, "TNK"),
-            "humidity": dwd_float(row, "UPM"), "wind": dwd_float(row, "FM"), "gust": dwd_float(row, "FX"), "precipitation": dwd_float(row, "RSK"), "sunshine": dwd_float(row, "SDK"),
+            "station_id": station["id"],
+            "name": station["name"],
+            "state": station["state"],
+            "lat": station["lat"],
+            "lon": station["lon"],
+            "elevation": station["elevation"],
+            "distance_km": station["distance_km"],
+            "date": format_dwd_date(row.get("MESS_DATUM", "")),
+            "archive_kind": archive_kind,
+            "mean_temp": dwd_float(row, "TMK"),
+            "max_temp": dwd_float(row, "TXK"),
+            "min_temp": dwd_float(row, "TNK"),
+            "precipitation": dwd_float(row, "RSK"),
+            "humidity": dwd_float(row, "UPM"),
+            "wind": dwd_float(row, "FM"),
+            "gust": dwd_float(row, "FX"),
         }
     return None
 
@@ -407,49 +419,60 @@ def get_dwd_readings_for_year(year: int) -> tuple[list[dict], int]:
     unavailable = 0
     for station in DWD_STATIONS:
         reading = get_dwd_daily_reading(station, year)
-        if reading:
-            readings.append(reading)
-        else:
+        if reading is None:
             unavailable += 1
+        else:
+            readings.append(reading)
+    readings.sort(key=lambda item: item["distance_km"])
     return readings, unavailable
 
 
 @st.cache_data(ttl=21600, show_spinner=False)
-def get_dwd_annual_series(station_id: str, start_year: int = 2000, end_year: int = 2026) -> list[dict]:
-    rows_by_date = {}
-    for archive_kind in ["historical", "recent"]:
+def get_dwd_annual_series(station_id: str) -> list[dict]:
+    rows_by_date: dict[str, dict[str, str]] = {}
+    for archive_kind in ("historical", "recent"):
         try:
             rows = fetch_dwd_rows(station_id, archive_kind)
         except Exception:
             continue
         for row in rows:
-            date = row.get("MESS_DATUM", "")
-            if len(date) == 8:
-                rows_by_date[date] = row
+            date_value = row.get("MESS_DATUM", "")
+            if date_value:
+                rows_by_date[date_value] = row
+
     buckets: dict[int, dict[str, list[float]]] = {}
-    for date, row in rows_by_date.items():
+    for date_value, row in rows_by_date.items():
         try:
-            year = int(date[:4])
+            year = int(date_value[:4])
         except ValueError:
             continue
-        if year < start_year or year > end_year:
+        if year < 2000 or year > 2026:
+            continue
+        temp = dwd_float(row, "TMK")
+        precip = dwd_float(row, "RSK")
+        humidity = dwd_float(row, "UPM")
+        if temp is None and precip is None and humidity is None:
             continue
         bucket = buckets.setdefault(year, {"temp": [], "precip": [], "humidity": []})
-        for key, target in [("TMK", "temp"), ("RSK", "precip"), ("UPM", "humidity")]:
-            value = dwd_float(row, key)
-            if value is not None:
-                bucket[target].append(value)
+        if temp is not None:
+            bucket["temp"].append(temp)
+        if precip is not None:
+            bucket["precip"].append(precip)
+        if humidity is not None:
+            bucket["humidity"].append(humidity)
+
     series = []
     for year in sorted(buckets):
         bucket = buckets[year]
-        if bucket["temp"]:
-            series.append({
-                "Year": year,
-                "Mean temp C": round(sum(bucket["temp"]) / len(bucket["temp"]), 1),
-                "Precip mm": round(sum(bucket["precip"]), 1) if bucket["precip"] else None,
-                "Mean humidity %": round(sum(bucket["humidity"]) / len(bucket["humidity"]), 0) if bucket["humidity"] else None,
-                "Days": len(bucket["temp"]),
-            })
+        if not bucket["temp"]:
+            continue
+        series.append({
+            "Year": year,
+            "Mean temp C": round(sum(bucket["temp"]) / len(bucket["temp"]), 1),
+            "Precip mm": round(sum(bucket["precip"]), 1) if bucket["precip"] else None,
+            "Mean humidity %": round(sum(bucket["humidity"]) / len(bucket["humidity"]), 0) if bucket["humidity"] else None,
+            "Days": len(bucket["temp"]),
+        })
     return series
 
 
@@ -730,6 +753,10 @@ def render_map_selection(map_state: Optional[dict]) -> None:
     clicked = map_state.get("last_object_clicked_tooltip") or map_state.get("last_object_clicked_popup")
     if clicked:
         st.markdown(f"<div class='ww-selected'><strong>Selected on map:</strong> {clicked}</div>", unsafe_allow_html=True)
+        return
+    last_clicked = map_state.get("last_clicked")
+    if isinstance(last_clicked, dict) and "lat" in last_clicked and "lng" in last_clicked:
+        st.markdown(f"<div class='ww-selected'><strong>Map point:</strong> {last_clicked['lat']:.5f}, {last_clicked['lng']:.5f}</div>", unsafe_allow_html=True)
 
 
 def render_evidence_board(year: int, view_mode: str, layers: dict[str, bool], notes: list[str]) -> None:
