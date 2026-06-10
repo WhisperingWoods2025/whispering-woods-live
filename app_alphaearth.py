@@ -1,31 +1,4 @@
-"""
-Streamlit application to visualize Google DeepMind's AlphaEarth embeddings for a chosen
-year and area of interest (AOI). The app uses the Google Earth Engine (GEE)
-Python API to fetch the annual satellite embedding dataset and displays three
-embedding bands as an RGB image on a Folium map.
-
-The embeddings represent 64-dimensional vectors summarising multi-sensor
-observations over a calendar year. Each band ranges from -1 to 1 and does
-not have a direct physical meaning but reveals spatial patterns across the
-landscape. Bands `A01`, `A16` and `A09` are used to create a false-colour RGB
-visualisation, following the public Earth Engine catalog example.
-
-Key features:
-
-* Authenticates to GEE using a service-account and JSON private key stored in
-  Streamlit secrets (`EE_SERVICE_ACCOUNT`, `EE_PRIVATE_KEY`, and optionally
-  `EE_PROJECT_ID`). An error is displayed if these secrets are missing or invalid.
-* Enforces a no-cost runtime guard. If `EE_USAGE_MODE` is set to a commercial,
-  paid, or billable mode, the app stops before Earth Engine initialisation.
-* Provides a sidebar for selecting a year (2017-2024) and for optionally
-  entering a GeoJSON polygon defining a custom AOI. If no AOI is supplied,
-  the app falls back to a default bounding box around Koenigssee in Bavaria.
-* Fetches embedding tiles from the `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
-  collection for the selected year and AOI, mosaics them, and displays the
-  selected bands as an RGB layer on a Folium map. The AOI boundary is outlined
-  on top of the map.
-* Uses `streamlit-folium` to embed the Folium map in the Streamlit app.
-"""
+"""Streamlit application to visualize AlphaEarth embeddings for a chosen AOI."""
 
 import json
 from typing import Optional
@@ -48,6 +21,7 @@ except ImportError as exc:
 
 EMBEDDING_COLLECTION_ID = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
+AOI_COLOR = "#D7A84E"
 
 _COSTED_USAGE_MODES = {
     "billable",
@@ -57,6 +31,218 @@ _COSTED_USAGE_MODES = {
     "paid",
     "production_paid",
 }
+
+
+def inject_theme_css() -> None:
+    """Apply a compact visual system on top of Streamlit defaults."""
+    st.markdown(
+        """
+<style>
+:root {
+  --ww-bg: #0c1410;
+  --ww-panel: #121d17;
+  --ww-panel-2: #17241d;
+  --ww-line: #284033;
+  --ww-text: #eef4ed;
+  --ww-muted: #9faf9f;
+  --ww-accent: #8ebf75;
+  --ww-gold: #d7a84e;
+  --ww-copper: #b96f4c;
+}
+
+[data-testid="stAppViewContainer"] {
+  background: var(--ww-bg);
+  color: var(--ww-text);
+}
+
+[data-testid="stHeader"] {
+  background: rgba(12, 20, 16, 0.92);
+  border-bottom: 1px solid rgba(142, 191, 117, 0.12);
+}
+
+.block-container {
+  max-width: 1540px;
+  padding: 2.25rem 2.5rem 2rem;
+}
+
+[data-testid="stSidebar"] {
+  background: #101914;
+  border-right: 1px solid var(--ww-line);
+}
+
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+  gap: 0.85rem;
+}
+
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p {
+  color: var(--ww-text);
+}
+
+[data-testid="stSidebar"] label {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+[data-testid="stSelectbox"] div,
+[data-testid="stTextArea"] textarea {
+  border-color: rgba(142, 191, 117, 0.18) !important;
+}
+
+[data-testid="stTextArea"] textarea {
+  min-height: 132px;
+}
+
+.ww-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.35rem;
+}
+
+.ww-kicker,
+.ww-side-kicker,
+.ww-metric-label,
+.ww-map-label {
+  color: var(--ww-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ww-title {
+  margin: 0.1rem 0 0;
+  color: var(--ww-text);
+  font-size: 2.55rem;
+  line-height: 1.05;
+  font-weight: 760;
+}
+
+.ww-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ww-status {
+  border: 1px solid rgba(142, 191, 117, 0.22);
+  border-radius: 6px;
+  color: #dfead9;
+  background: rgba(142, 191, 117, 0.08);
+  font-size: 0.82rem;
+  font-weight: 650;
+  padding: 0.42rem 0.62rem;
+}
+
+.ww-status.gold {
+  border-color: rgba(215, 168, 78, 0.36);
+  background: rgba(215, 168, 78, 0.12);
+}
+
+.ww-side-title {
+  color: var(--ww-text);
+  font-size: 1.35rem;
+  font-weight: 760;
+  margin: 0.3rem 0 0.1rem;
+}
+
+.ww-side-note {
+  color: var(--ww-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border-left: 2px solid var(--ww-gold);
+  padding: 0.1rem 0 0.1rem 0.7rem;
+}
+
+.ww-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.ww-metric {
+  background: linear-gradient(180deg, rgba(23, 36, 29, 0.96), rgba(18, 29, 23, 0.96));
+  border: 1px solid rgba(142, 191, 117, 0.14);
+  border-radius: 8px;
+  padding: 0.85rem 0.9rem;
+}
+
+.ww-metric strong {
+  display: block;
+  color: var(--ww-text);
+  font-size: 1.1rem;
+  line-height: 1.2;
+  margin-top: 0.25rem;
+}
+
+.ww-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.15rem 0 0.6rem;
+}
+
+.ww-map-title {
+  color: var(--ww-text);
+  font-size: 1.12rem;
+  font-weight: 760;
+}
+
+.ww-band-list {
+  color: var(--ww-muted);
+  font-size: 0.88rem;
+}
+
+.ww-band-list code {
+  color: #bfe5ad;
+  background: rgba(142, 191, 117, 0.12);
+  border: 1px solid rgba(142, 191, 117, 0.15);
+  border-radius: 5px;
+  padding: 0.12rem 0.32rem;
+}
+
+[data-testid="stIFrame"] {
+  border: 1px solid rgba(142, 191, 117, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+[data-testid="stAlert"] {
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .block-container {
+    padding: 1.25rem 1rem 1.5rem;
+  }
+
+  .ww-header,
+  .ww-map-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ww-status-row {
+    justify-content: flex-start;
+  }
+
+  .ww-title {
+    font-size: 2rem;
+  }
+
+  .ww-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _read_secret(name: str) -> Optional[str]:
@@ -214,7 +400,6 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
         except Exception:
             st.warning("Invalid GeoJSON provided. Falling back to default AOI.")
 
-    # Default bounding box around Koenigssee (approximate lat/long).
     default_coords = [
         [12.95, 47.55],
         [12.95, 47.65],
@@ -223,6 +408,13 @@ def get_aoi(geojson_str: str) -> ee.Geometry:
         [12.95, 47.55],
     ]
     return ee.Geometry.Polygon([default_coords])
+
+
+def get_aoi_view(aoi: ee.Geometry) -> tuple[list[float], list[list[float]]]:
+    """Return center and Leaflet bounds for the selected AOI."""
+    centroid = aoi.centroid().coordinates().getInfo()
+    bounds_coords = aoi.bounds().coordinates().getInfo()[0]
+    return [centroid[1], centroid[0]], [[lat, lon] for lon, lat in bounds_coords]
 
 
 def get_embedding_image(year: int, aoi: ee.Geometry) -> tuple[ee.Image, int]:
@@ -248,71 +440,140 @@ def add_ee_layer(m: folium.Map, image: ee.Image, vis_params: dict, name: str) ->
         name=name,
         overlay=True,
         control=True,
+        opacity=0.88,
     ).add_to(m)
 
 
-def add_aoi_boundary(m: folium.Map, aoi: ee.Geometry, color: str = "red") -> None:
+def add_aoi_boundary(m: folium.Map, aoi: ee.Geometry, color: str = AOI_COLOR) -> None:
     """Add AOI boundary to a Folium map as a non-filled outline."""
     folium.GeoJson(
         aoi.getInfo(),
         name="AOI boundary",
-        style_function=lambda _: {"color": color, "weight": 2, "fillOpacity": 0},
+        style_function=lambda _: {
+            "color": color,
+            "weight": 2.5,
+            "fillOpacity": 0,
+            "opacity": 0.95,
+        },
     ).add_to(m)
+
+
+def build_map(center: list[float], bounds: list[list[float]]) -> folium.Map:
+    """Create the map surface and focus it on the AOI."""
+    m = folium.Map(location=center, zoom_start=11, tiles=None, control_scale=True)
+    folium.TileLayer("CartoDB positron", name="Base map", control=False).add_to(m)
+    m.fit_bounds(bounds, padding=(26, 26))
+    return m
+
+
+def render_sidebar() -> tuple[int, str]:
+    """Render controls and return selected inputs."""
+    with st.sidebar:
+        st.markdown(
+            """
+<div class="ww-side-kicker">Whispering Woods</div>
+<div class="ww-side-title">Embedding Explorer</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        year = st.selectbox("Year", options=list(range(2017, 2025)), index=2024 - 2017)
+        geojson_input: str = st.text_area(
+            "AOI GeoJSON",
+            "",
+            height=132,
+            help="Paste a GeoJSON polygon to replace the default AOI.",
+        )
+        st.markdown(
+            "<div class='ww-side-note'>Default AOI: Koenigssee, Bavaria.</div>",
+            unsafe_allow_html=True,
+        )
+    return year, geojson_input
+
+
+def render_header(usage_mode: str, year: int) -> None:
+    """Render the top application heading."""
+    st.markdown(
+        f"""
+<div class="ww-header">
+  <div>
+    <div class="ww-kicker">Whispering Woods</div>
+    <div class="ww-title">AlphaEarth Embeddings</div>
+  </div>
+  <div class="ww-status-row">
+    <div class="ww-status">Earth Engine live</div>
+    <div class="ww-status gold">{usage_mode}</div>
+    <div class="ww-status">{year}</div>
+  </div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_metric_grid(year: int, tile_count: int, usage_mode: str) -> None:
+    """Render compact context metrics."""
+    bands = " / ".join(DEFAULT_RGB_BANDS)
+    st.markdown(
+        f"""
+<div class="ww-metric-grid">
+  <div class="ww-metric"><div class="ww-metric-label">Year</div><strong>{year}</strong></div>
+  <div class="ww-metric"><div class="ww-metric-label">AOI Tiles</div><strong>{tile_count}</strong></div>
+  <div class="ww-metric"><div class="ww-metric-label">RGB Bands</div><strong>{bands}</strong></div>
+  <div class="ww-metric"><div class="ww-metric-label">Usage Mode</div><strong>{usage_mode}</strong></div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_map_heading(year: int) -> None:
+    """Render the map section heading."""
+    st.markdown(
+        f"""
+<div class="ww-map-head">
+  <div>
+    <div class="ww-map-label">AOI View</div>
+    <div class="ww-map-title">AlphaEarth annual embedding, {year}</div>
+  </div>
+  <div class="ww-band-list"><code>A01</code> <code>A16</code> <code>A09</code></div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def main() -> None:
     """Render the Streamlit user interface and map."""
-    st.set_page_config(page_title="AlphaEarth Embeddings Explorer", layout="wide")
-    st.title("AlphaEarth Embeddings Explorer")
+    st.set_page_config(page_title="Whispering Woods AlphaEarth", layout="wide")
+    inject_theme_css()
+
     usage_mode = enforce_no_cost_guardrail()
-    st.caption(
-        f"No-cost mode: Earth Engine usage is treated as `{usage_mode}`; "
-        "this app only reads public datasets and renders map layers."
-    )
-
     _init_ee_cached()
-
-    with st.sidebar:
-        st.header("Controls")
-        year = st.selectbox(
-            "Select year", options=list(range(2017, 2025)), index=2024 - 2017
-        )
-        geojson_input: str = st.text_area(
-            "Optional AOI GeoJSON polygon",
-            "",
-            height=120,
-            help="Paste a GeoJSON polygon here to define a custom AOI.",
-        )
+    year, geojson_input = render_sidebar()
+    render_header(usage_mode, year)
 
     aoi = get_aoi(geojson_input)
 
     try:
         image, tile_count = get_embedding_image(year, aoi)
-        centroid = aoi.centroid().coordinates().getInfo()
+        center, bounds = get_aoi_view(aoi)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not prepare the selected AOI/year.", exc)
 
-    rgb_vis = {"bands": DEFAULT_RGB_BANDS, "min": -0.3, "max": 0.3}
+    render_metric_grid(year, tile_count, usage_mode)
 
-    lat, lon = centroid[1], centroid[0]
-    m = folium.Map(location=[lat, lon], zoom_start=11, tiles="OpenStreetMap")
+    rgb_vis = {"bands": DEFAULT_RGB_BANDS, "min": -0.3, "max": 0.3}
+    m = build_map(center, bounds)
     try:
-        add_ee_layer(m, image, rgb_vis, f"{year} Embedding RGB")
+        add_ee_layer(m, image, rgb_vis, f"{year} embedding")
         add_aoi_boundary(m, aoi)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the map layer.", exc)
 
-    folium.LayerControl().add_to(m)
+    folium.LayerControl(position="topright", collapsed=True).add_to(m)
 
-    st.subheader("Visualization")
-    st.caption(f"Using {tile_count} AlphaEarth tile(s) for the selected AOI.")
-    st.markdown(
-        """
-        The RGB image below uses embedding bands `A01`, `A16`, and `A09` to reveal
-        spatial patterns across the selected area. Each band ranges from -1 to 1.
-        """
-    )
-    st_folium(m, width=None, height=600)
+    render_map_heading(year)
+    st_folium(m, width=None, height=720)
 
 
 if __name__ == "__main__":
