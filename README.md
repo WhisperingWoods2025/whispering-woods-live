@@ -1,16 +1,34 @@
 # Whispering Woods
 
-Whispering Woods is a prototype Streamlit dashboard for monitoring forest health using satellite-derived vegetation indices. The dashboard displays NDVI, NDWI, and EVI for multiple points within the Koenigssee forest area and supports date selection with a time slider.
+Whispering Woods is a prototype Streamlit dashboard for exploring conservation-relevant forest information layers in a stakeholder-facing map interface. The main app combines public Google Earth Engine datasets around the Koenigssee default area of interest, with a no-cost guardrail for non-commercial use.
 
 ## Files
 
-- `app.py`: Streamlit app code for the dashboard.
-- `app_alphaearth.py`: Streamlit app for viewing AlphaEarth annual embedding RGB layers from Google Earth Engine.
+- `app.py`: Earlier Streamlit dashboard for sample NDVI, NDWI, and EVI data.
+- `app_alphaearth.py`: Main stakeholder map app for Whispering Woods forest intelligence layers.
 - `app_alphaearth_diff.py`: Streamlit app for comparing AlphaEarth embedding bands between two years.
 - `sample_ndvi_data.csv`: Example dataset with coordinates, dates, NDVI, NDWI, and EVI values.
-- `requirements.txt`: Python dependencies needed to run the app.
+- `requirements.txt`: Python dependencies needed to run the apps.
 
-## Running the app locally
+## Main stakeholder map
+
+Run the main stakeholder app with:
+
+```bash
+streamlit run app_alphaearth.py
+```
+
+The map currently supports these real public Earth Engine layers:
+
+- AlphaEarth annual satellite embeddings for landscape pattern exploration.
+- Hansen Global Forest Change tree canopy and cumulative tree-cover loss.
+- JRC Global Surface Water for water and recurring wetland context.
+- ESA WorldCover for land-cover / habitat context.
+- MODIS MCD64A1 burned-area history for the selected year.
+
+Prototype-only future integrations are shown separately in the UI as planned layers, not as active data: inventory trees, species observations, soil and field samples, and local weather sensors.
+
+## Running the sample NDVI dashboard locally
 
 1. Install the dependencies:
 
@@ -18,30 +36,30 @@ Whispering Woods is a prototype Streamlit dashboard for monitoring forest health
 pip install -r requirements.txt
 ```
 
-2. Run the main dashboard using Streamlit:
+2. Run the older sample dashboard using Streamlit:
 
 ```bash
 streamlit run app.py
 ```
 
-The dashboard will open in your web browser, showing vegetation indices and statistics for selected dates.
+The sample dashboard opens in your browser and shows vegetation indices and statistics for selected dates.
 
 ## No-cost guardrail
 
-This project is intended to avoid generating costs. The AlphaEarth apps should be run only with an Earth Engine project registered for eligible non-commercial, research, conservation, or impact use.
+This project is intended to avoid generating costs. The Earth Engine apps should be run only with an Earth Engine project registered for eligible non-commercial, research, conservation, or impact use.
 
 To keep the project no-cost:
 
 - Register the Google Cloud project for non-commercial Earth Engine access.
-- Keep `EE_USAGE_MODE` set to `noncommercial`, `research`, `conservation`, or `impact`. If it is set to `commercial`, `paid`, `billable`, `enterprise`, `government_operational`, or `production_paid`, the AlphaEarth apps stop before initializing Earth Engine.
+- Keep `EE_USAGE_MODE` set to `noncommercial`, `research`, `conservation`, or `impact`. If it is set to `commercial`, `paid`, `billable`, `enterprise`, `government_operational`, or `production_paid`, the Earth Engine apps stop before initializing Earth Engine.
 - Do not switch the Earth Engine project to commercial/paid use unless cost generation is intentionally approved.
 - Do not add batch exports to Google Cloud Storage, BigQuery, Vertex AI, paid Maps APIs, or other billable Google Cloud services.
-- Keep the AlphaEarth apps read-only. The current code reads public Earth Engine datasets and renders map layers; it does not export files, write Earth Engine assets, or create cloud resources.
+- Keep the apps read-only. The current code reads public Earth Engine datasets and renders map layers; it does not export files, write Earth Engine assets, or create cloud resources.
 - Monitor the Streamlit app after deployment and stop it if Google/Streamlit reports quota, billing, or paid-plan prompts.
 
-## Earth Engine setup for AlphaEarth apps
+## Earth Engine setup
 
-The AlphaEarth apps use Google Earth Engine and require a registered Google Cloud project plus service-account credentials. In Streamlit Cloud, add these secrets in the app settings:
+The Earth Engine apps require a registered Google Cloud project plus service-account credentials. In Streamlit Cloud, add these secrets in the app settings:
 
 ```toml
 EE_SERVICE_ACCOUNT = "your-service-account@your-project.iam.gserviceaccount.com"
