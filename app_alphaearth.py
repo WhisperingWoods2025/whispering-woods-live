@@ -1,7 +1,12 @@
 """Stakeholder-facing Whispering Woods forest layer explorer."""
 
+import csv
+import io
 import json
 import math
+import re
+import urllib.request
+import zipfile
 from typing import Optional
 
 import folium
@@ -29,12 +34,63 @@ ERA5_COLLECTION_ID = "ECMWF/ERA5_LAND/MONTHLY_AGGR"
 WDPA_COLLECTION_ID = "WCMC/WDPA/current/polygons"
 BERCHTESGADEN_WDPA_ID = 668
 
+DWD_RECENT_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent"
+DWD_HISTORICAL_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/historical"
+
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 AOI_COLOR = "#F1C75B"
 AVAILABLE_YEARS = list(range(2000, 2027))
 ALPHAEARTH_YEARS = set(range(2017, 2025))
 
-SENSOR_SITES = [
+DWD_STATIONS = [
+    {
+        "id": "19856",
+        "name": "Schoenau am Koenigssee",
+        "state": "Bayern",
+        "lat": 47.6134,
+        "lon": 12.9819,
+        "elevation": 625,
+        "distance_km": 7.4,
+    },
+    {
+        "id": "07424",
+        "name": "Piding",
+        "state": "Bayern",
+        "lat": 47.7724,
+        "lon": 12.9073,
+        "elevation": 457,
+        "distance_km": 24.9,
+    },
+    {
+        "id": "07105",
+        "name": "Siegsdorf-Hoell",
+        "state": "Bayern",
+        "lat": 47.8350,
+        "lon": 12.6548,
+        "elevation": 719,
+        "distance_km": 38.6,
+    },
+    {
+        "id": "02573",
+        "name": "Waging am See-Schnoebling",
+        "state": "Bayern",
+        "lat": 47.9588,
+        "lon": 12.7717,
+        "elevation": 470,
+        "distance_km": 47.4,
+    },
+    {
+        "id": "00856",
+        "name": "Chieming",
+        "state": "Bayern",
+        "lat": 47.8843,
+        "lon": 12.5404,
+        "elevation": 551,
+        "distance_km": 48.2,
+    },
+]
+
+SOIL_SENSOR_SITES = [
     {
         "name": "Koenigssee shoreline",
         "zone": "Lake edge",
@@ -426,67 +482,225 @@ def get_soil_moisture_layer(year: int, aoi: ee.Geometry) -> Optional[ee.Image]:
     return collection.select("volumetric_soil_water_layer_1").mean().clip(aoi)
 
 
-def estimate_sensor_reading(site: dict, year: int) -> dict[str, float]:
-    """Generate deterministic prototype local sensor values for the selected year."""
+def dwd_float(row: dict[str, str], key: str) -> Optional[float]:
+    """Parse DWD numeric values and convert missing flags to None."""
+    raw_value = row.get(key, "").strip().replace(",", ".")
+    if not raw_value:
+        return None
+    try:
+        value = float(raw_value)
+    except ValueError:
+        return None
+    if value <= -998:
+        return None
+    return value
+
+
+def format_number(value: Optional[float], suffix: str, decimals: int = 1) -> str:
+    """Format nullable numeric values for popup tables."""
+    if value is None:
+        return "n/a"
+    return f"{value:.{decimals}f}{suffix}"
+
+
+def format_dwd_date(raw_date: str) -> str:
+    """Format YYYYMMDD DWD dates for readable labels."""
+    if len(raw_date) != 8:
+        return raw_date or "n/a"
+    return f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def get_dwd_archive_url(station_id: str, archive_kind: str) -> str:
+    """Return the DWD zip URL for a recent or historical daily climate archive."""
+    if archive_kind == "recent":
+        return f"{DWD_RECENT_BASE_URL}/tageswerte_KL_{station_id}_akt.zip"
+
+    index_html = urllib.request.urlopen(f"{DWD_HISTORICAL_BASE_URL}/", timeout=12).read().decode(
+        "utf-8", errors="ignore"
+    )
+    pattern = rf"tageswerte_KL_{re.escape(station_id)}_[^\"'<>]*_hist\.zip"
+    matches = sorted(set(re.findall(pattern, index_html)))
+    if not matches:
+        raise ValueError(f"No DWD historical climate archive found for station {station_id}.")
+    return f"{DWD_HISTORICAL_BASE_URL}/{matches[-1]}"
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def fetch_dwd_rows(station_id: str, archive_kind: str) -> list[dict[str, str]]:
+    """Download and parse DWD daily climate rows for one station archive."""
+    archive_url = get_dwd_archive_url(station_id, archive_kind)
+    with urllib.request.urlopen(archive_url, timeout=18) as response:
+        archive_data = response.read()
+
+    with zipfile.ZipFile(io.BytesIO(archive_data)) as archive:
+        product_names = [
+            name
+            for name in archive.namelist()
+            if "produkt_klima_tag" in name and name.endswith(".txt")
+        ]
+        if not product_names:
+            raise ValueError(f"No DWD product file found in station archive {station_id}.")
+        with archive.open(product_names[0]) as product_file:
+            text = product_file.read().decode("latin1")
+
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    rows = []
+    for row in reader:
+        clean_row = {
+            key.strip(): value.strip()
+            for key, value in row.items()
+            if key is not None and value is not None
+        }
+        if clean_row.get("MESS_DATUM"):
+            rows.append(clean_row)
+    return rows
+
+
+def get_dwd_daily_reading(station: dict, year: int) -> Optional[dict]:
+    """Return the latest available daily DWD reading for the selected year."""
+    archive_order = ["recent", "historical"] if year >= 2025 else ["historical", "recent"]
+    for archive_kind in archive_order:
+        try:
+            rows = fetch_dwd_rows(station["id"], archive_kind)
+        except Exception:
+            continue
+        candidates = [
+            row
+            for row in rows
+            if row.get("MESS_DATUM", "").startswith(str(year)) and dwd_float(row, "TMK") is not None
+        ]
+        if not candidates:
+            continue
+        row = candidates[-1]
+        return {
+            "station_id": station["id"],
+            "name": station["name"],
+            "state": station["state"],
+            "lat": station["lat"],
+            "lon": station["lon"],
+            "elevation": station["elevation"],
+            "distance_km": station["distance_km"],
+            "date": format_dwd_date(row.get("MESS_DATUM", "")),
+            "archive_kind": archive_kind,
+            "mean_temp": dwd_float(row, "TMK"),
+            "max_temp": dwd_float(row, "TXK"),
+            "min_temp": dwd_float(row, "TNK"),
+            "humidity": dwd_float(row, "UPM"),
+            "wind": dwd_float(row, "FM"),
+            "gust": dwd_float(row, "FX"),
+            "precipitation": dwd_float(row, "RSK"),
+            "sunshine": dwd_float(row, "SDK"),
+        }
+    return None
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def get_dwd_readings_for_year(year: int) -> tuple[list[dict], int]:
+    """Return available DWD station readings and unavailable count for the selected year."""
+    readings = []
+    unavailable = 0
+    for station in DWD_STATIONS:
+        reading = get_dwd_daily_reading(station, year)
+        if reading:
+            readings.append(reading)
+        else:
+            unavailable += 1
+    return readings, unavailable
+
+
+def estimate_soil_reading(site: dict, year: int) -> dict[str, float]:
+    """Generate deterministic prototype soil probe values for the selected year."""
     phase = year - 2000
     seasonal = math.sin((phase + site["seed"]) / 3.2)
     elevation_km = site["elevation"] / 1000
-    air_temp = 7.8 + phase * 0.045 - elevation_km * 4.1 + seasonal * 0.7
-    soil_temp = air_temp + 1.2 - elevation_km * 0.5
+    soil_temp = 7.8 + phase * 0.035 - elevation_km * 3.8 + seasonal * 0.55
     soil_moisture = 34 + elevation_km * 4.5 + seasonal * 4.0 + (site["seed"] % 4) * 1.2
-    humidity = 76 + seasonal * 5.5 + (site["seed"] % 3) * 2.0
-    wind = 5.0 + elevation_km * 3.4 + abs(seasonal) * 1.7
     return {
-        "air_temp": round(air_temp, 1),
         "soil_temp": round(soil_temp, 1),
         "soil_moisture": round(max(8, min(70, soil_moisture)), 1),
-        "humidity": round(max(35, min(98, humidity)), 0),
-        "wind": round(wind, 1),
         "ph": round(site["ph"] + seasonal * 0.06, 2),
         "carbon": round(site["carbon"] + seasonal * 0.25, 1),
     }
 
 
-def add_sensor_markers(m: folium.Map, year: int, layers: dict[str, bool]) -> None:
-    """Add prototype local weather and soil probe readings as map markers."""
-    if not layers["weather_sensors"] and not layers["soil_sensors"]:
+def add_dwd_weather_markers(m: folium.Map, year: int, layers: dict[str, bool]) -> list[str]:
+    """Add real DWD daily climate station markers for the selected year."""
+    if not layers["weather_sensors"]:
+        return []
+
+    notes = []
+    try:
+        readings, unavailable = get_dwd_readings_for_year(year)
+    except Exception as exc:
+        return [f"DWD weather station data could not be loaded: {exc}"]
+
+    if not readings:
+        return [f"No DWD daily weather station records were available for the selected year {year}."]
+    if unavailable:
+        notes.append(f"DWD has no selected-year daily records for {unavailable} nearby station(s).")
+
+    group = folium.FeatureGroup(name="DWD daily weather stations", show=True)
+    for reading in readings:
+        source_label = "recent daily feed" if reading["archive_kind"] == "recent" else "historical daily archive"
+        popup_html = f"""
+        <div style='font-family: sans-serif; min-width: 260px;'>
+          <strong>{reading['name']}</strong><br>
+          <span>DWD station {reading['station_id']} | {reading['elevation']} m | {reading['distance_km']} km from park center</span><br>
+          <span>{reading['date']} | {source_label}</span>
+          <table style='margin-top: 8px; width: 100%; font-size: 12px;'>
+            <tr><td>Mean temp</td><td>{format_number(reading['mean_temp'], ' C')}</td></tr>
+            <tr><td>Min / max temp</td><td>{format_number(reading['min_temp'], ' C')} / {format_number(reading['max_temp'], ' C')}</td></tr>
+            <tr><td>Precipitation</td><td>{format_number(reading['precipitation'], ' mm')}</td></tr>
+            <tr><td>Humidity</td><td>{format_number(reading['humidity'], '%', 0)}</td></tr>
+            <tr><td>Mean wind</td><td>{format_number(reading['wind'], ' m/s')}</td></tr>
+            <tr><td>Max gust</td><td>{format_number(reading['gust'], ' m/s')}</td></tr>
+          </table>
+        </div>
+        """
+        folium.CircleMarker(
+            location=[reading["lat"], reading["lon"]],
+            radius=7,
+            color="#07110c",
+            weight=2,
+            fill=True,
+            fill_color="#4ea8de",
+            fill_opacity=0.94,
+            tooltip=f"DWD weather: {reading['name']}",
+            popup=folium.Popup(popup_html, max_width=340),
+        ).add_to(group)
+    group.add_to(m)
+    return notes
+
+
+def add_soil_sensor_markers(m: folium.Map, year: int, layers: dict[str, bool]) -> None:
+    """Add clearly labelled prototype soil probe readings as map markers."""
+    if not layers["soil_sensors"]:
         return
 
-    group = folium.FeatureGroup(name="Local sensor prototype", show=True)
-    for site in SENSOR_SITES:
-        reading = estimate_sensor_reading(site, year)
-        rows = ""
-        if layers["weather_sensors"]:
-            rows += (
-                f"<tr><td>Air temp</td><td>{reading['air_temp']} C</td></tr>"
-                f"<tr><td>Humidity</td><td>{reading['humidity']}%</td></tr>"
-                f"<tr><td>Wind</td><td>{reading['wind']} m/s</td></tr>"
-            )
-        if layers["soil_sensors"]:
-            rows += (
-                f"<tr><td>Soil moisture</td><td>{reading['soil_moisture']}%</td></tr>"
-                f"<tr><td>Soil temp</td><td>{reading['soil_temp']} C</td></tr>"
-                f"<tr><td>pH / SOC</td><td>{reading['ph']} / {reading['carbon']}%</td></tr>"
-            )
+    group = folium.FeatureGroup(name="Prototype soil probes", show=True)
+    for site in SOIL_SENSOR_SITES:
+        reading = estimate_soil_reading(site, year)
         popup_html = f"""
         <div style='font-family: sans-serif; min-width: 230px;'>
           <strong>{site['name']}</strong><br>
-          <span>{site['zone']} | {site['elevation']} m | prototype sensor</span>
-          <table style='margin-top: 8px; width: 100%; font-size: 12px;'>{rows}</table>
+          <span>{site['zone']} | {site['elevation']} m | prototype soil probe</span>
+          <table style='margin-top: 8px; width: 100%; font-size: 12px;'>
+            <tr><td>Soil moisture</td><td>{reading['soil_moisture']}%</td></tr>
+            <tr><td>Soil temp</td><td>{reading['soil_temp']} C</td></tr>
+            <tr><td>pH / SOC</td><td>{reading['ph']} / {reading['carbon']}%</td></tr>
+          </table>
         </div>
         """
-        color = "#a8d7a8" if layers["weather_sensors"] and layers["soil_sensors"] else "#4ea8de"
-        if layers["soil_sensors"] and not layers["weather_sensors"]:
-            color = "#f1c75b"
         folium.CircleMarker(
             location=[site["lat"], site["lon"]],
             radius=7,
             color="#07110c",
             weight=2,
             fill=True,
-            fill_color=color,
+            fill_color="#f1c75b",
             fill_opacity=0.94,
-            tooltip=f"{site['name']} sensor prototype",
+            tooltip=f"Prototype soil probe: {site['name']}",
             popup=folium.Popup(popup_html, max_width=300),
         ).add_to(group)
     group.add_to(m)
@@ -600,9 +814,9 @@ def render_layer_panel() -> tuple[int, str, str, dict[str, bool]]:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-section-label'>LOCAL SENSOR PROTOTYPE</div>", unsafe_allow_html=True)
-    layers["weather_sensors"] = st.checkbox("Weather station readings", value=True)
-    layers["soil_sensors"] = st.checkbox("Soil probe readings", value=True)
+    st.markdown("<div class='ww-section-label'>LOCAL OBSERVATIONS</div>", unsafe_allow_html=True)
+    layers["weather_sensors"] = st.checkbox("DWD weather stations", value=True)
+    layers["soil_sensors"] = st.checkbox("Soil probe prototype", value=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander("Custom AOI", expanded=False):
@@ -618,7 +832,7 @@ def render_sources_panel() -> None:
   <div class="ww-source-item"><strong>Protected area boundary</strong><br>WDPA boundary for Berchtesgaden National Park, with local fallback.</div>
   <div class="ww-source-item"><strong>Earth observation layers</strong><br>AlphaEarth, Hansen forest change, JRC water, ESA WorldCover, MODIS burned area.</div>
   <div class="ww-source-item"><strong>Climate and soil context</strong><br>ERA5-Land monthly model fields for air temperature and top-layer soil moisture.</div>
-  <div class="ww-source-item"><strong>Local sensors</strong><br>Prototype station values for stakeholder workflow design, ready to replace with live feeds.</div>
+  <div class="ww-source-item"><strong>Local observations</strong><br>DWD daily climate station records plus clearly labelled prototype soil probes.</div>
 </div>
         """,
         unsafe_allow_html=True,
@@ -641,18 +855,31 @@ def render_planned_layers() -> None:
     )
 
 
-def render_sensor_summary(year: int) -> None:
-    """Show compact prototype sensor averages."""
-    readings = [estimate_sensor_reading(site, year) for site in SENSOR_SITES]
-    avg_air = round(sum(r["air_temp"] for r in readings) / len(readings), 1)
-    avg_soil = round(sum(r["soil_moisture"] for r in readings) / len(readings), 1)
-    avg_ph = round(sum(r["ph"] for r in readings) / len(readings), 2)
+def render_observation_summary(year: int) -> None:
+    """Show compact real DWD and prototype soil summaries."""
+    try:
+        dwd_readings, _ = get_dwd_readings_for_year(year)
+    except Exception:
+        dwd_readings = []
+
+    soil_readings = [estimate_soil_reading(site, year) for site in SOIL_SENSOR_SITES]
+    avg_soil = round(sum(r["soil_moisture"] for r in soil_readings) / len(soil_readings), 1)
+    avg_ph = round(sum(r["ph"] for r in soil_readings) / len(soil_readings), 2)
+
+    if dwd_readings:
+        nearest = dwd_readings[0]
+        weather_label = f"{format_number(nearest['mean_temp'], ' C')} at {nearest['name']}"
+        station_label = f"{len(dwd_readings)} DWD station(s) with {year} records"
+    else:
+        weather_label = f"No DWD station record for {year}"
+        station_label = "DWD station layer waits for available records"
+
     st.markdown(
         f"""
 <div class="ww-sensor-grid">
-  <div class="ww-sensor-card"><span>Prototype weather</span><strong>{avg_air} C avg air temp</strong></div>
-  <div class="ww-sensor-card"><span>Prototype soil</span><strong>{avg_soil}% avg moisture</strong></div>
-  <div class="ww-sensor-card"><span>Prototype chemistry</span><strong>pH {avg_ph} mean</strong></div>
+  <div class="ww-sensor-card"><span>Real DWD weather</span><strong>{weather_label}</strong></div>
+  <div class="ww-sensor-card"><span>Station coverage</span><strong>{station_label}</strong></div>
+  <div class="ww-sensor-card"><span>Prototype soil</span><strong>{avg_soil}% moisture | pH {avg_ph}</strong></div>
 </div>
         """,
         unsafe_allow_html=True,
@@ -698,13 +925,15 @@ def get_enabled_labels(layers: dict[str, bool]) -> list[tuple[str, str]]:
         labels.append(("Air temp", "#ff6b4a"))
     if layers["soil_moisture"]:
         labels.append(("Soil moisture", "#45b7d1"))
-    if layers["weather_sensors"] or layers["soil_sensors"]:
-        labels.append(("Sensors", "#f1c75b"))
+    if layers["weather_sensors"]:
+        labels.append(("DWD weather", "#4ea8de"))
+    if layers["soil_sensors"]:
+        labels.append(("Soil probes", "#f1c75b"))
     return labels or [("Park boundary", AOI_COLOR)]
 
 
 def add_selected_layers(m: folium.Map, year: int, aoi: ee.Geometry, layers: dict[str, bool]) -> tuple[int, list[str]]:
-    """Add selected Earth Engine and prototype sensor layers."""
+    """Add selected Earth Engine, DWD, and prototype soil layers."""
     alphaearth_tile_count = 0
     notes = []
 
@@ -808,7 +1037,8 @@ def add_selected_layers(m: folium.Map, year: int, aoi: ee.Geometry, layers: dict
                 opacity=0.56,
             )
 
-    add_sensor_markers(m, year, layers)
+    notes.extend(add_dwd_weather_markers(m, year, layers))
+    add_soil_sensor_markers(m, year, layers)
     return alphaearth_tile_count, notes
 
 
@@ -837,7 +1067,7 @@ def main() -> None:
 
     with left:
         render_header(usage_mode, year, enabled_count, area_name)
-        render_sensor_summary(year)
+        render_observation_summary(year)
 
         try:
             center, bounds = get_aoi_view(aoi)
@@ -851,7 +1081,10 @@ def main() -> None:
         render_map_heading(year, get_enabled_labels(layers), area_name)
         st_folium(m, width=None, height=760)
 
-        captions = ["Visible map layers are public Earth Engine datasets plus clearly labelled prototype sensor readings."]
+        captions = [
+            "Visible map layers are public Earth Engine datasets, DWD daily climate observations, "
+            "and clearly labelled prototype soil probes."
+        ]
         if layers["alphaearth"] and alphaearth_tile_count:
             captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
         captions.extend(notes)
