@@ -70,6 +70,8 @@ For local development, put the same values in `.streamlit/secrets.toml`. Do not 
 The Cloud project must have the Earth Engine API enabled and be registered for Earth Engine use. The service account also needs project-level IAM access:
 
 - `Service Usage Consumer` (`roles/serviceusage.serviceUsageConsumer`)
-- `Earth Engine Resource Viewer` (`roles/earthengine.viewer`), shown as beta in some Google Cloud IAM screens
+- `Earth Engine Resource Writer` (`roles/earthengine.writer`), shown as beta in some Google Cloud IAM screens
 
-These roles let the service account use the registered Earth Engine project and read/render public Earth Engine datasets. They do not by themselves switch the project to paid/commercial Earth Engine use.
+`Earth Engine Resource Viewer` (`roles/earthengine.viewer`) is enough for some read-only computations, but it does not include `earthengine.maps.create`, which the Folium/Streamlit map needs to request live Earth Engine map tiles.
+
+`Earth Engine Resource Writer` is broader than pure viewing, so keep the app code read-only: do not add exports, asset writes, cloud storage writes, BigQuery writes, Vertex AI calls, or other billable/cloud-writing workflows. Granting the role does not by itself switch the project to paid/commercial Earth Engine use.
