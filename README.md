@@ -20,7 +20,16 @@ streamlit run app_alphaearth.py
 
 The default area of interest is Berchtesgaden National Park. The app first tries to use the WDPA protected-area polygon (`WDPAID 668`) from Earth Engine, and falls back to a local park-scale polygon if that query is unavailable.
 
-The timeline runs from 2000 to 2026. Some layers have narrower availability and are shown only when the selected year supports them:
+The stakeholder interface is designed as an interactive forest intelligence map:
+
+- Exploration lenses: Stakeholder overview, Forest change, Water and climate, and Habitat and risk. Each lens sets sensible default layers that can still be refined manually.
+- Timeline slider: 2000-2026.
+- Interactive map markers: DWD weather stations and prototype soil probes can be clicked for detail popups.
+- Evidence board: insight cards, a DWD annual weather trend chart, a sortable station table, and source notes.
+- Map styles: satellite, light, and terrain.
+- Custom AOI: optional GeoJSON polygon input for testing another area.
+
+Some layers have narrower availability and are shown only when the selected year supports them:
 
 - AlphaEarth annual satellite embeddings: 2017-2024.
 - Hansen tree-cover loss: cumulative loss from 2001-2025; 2026 uses the latest available 2025 loss year.
@@ -46,7 +55,7 @@ The DWD weather station layer uses official daily climate records from the DWD O
 - Waging am See-Schnoebling (`02573`), about 47.4 km from the park center.
 - Chieming (`00856`), about 48.2 km from the park center.
 
-For each selected year, the app tries to show the latest available daily record in that year. For older years, some newer stations do not have data; the app reports that gap instead of inventing values.
+For each selected year, the app tries to show the latest available daily record in that year. For older years, some newer stations do not have data; the app reports that gap instead of inventing values. The annual DWD trend panel defaults to Chieming because it has long coverage across the 2000-2026 timeline.
 
 The app also includes prototype soil probe markers for stakeholder workflow design:
 
