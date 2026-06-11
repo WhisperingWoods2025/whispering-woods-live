@@ -11,6 +11,7 @@ from typing import Optional
 
 import folium
 import pandas as pd
+import pydeck as pdk
 import streamlit as st
 
 try:
@@ -31,6 +32,7 @@ WORLDCOVER_COLLECTION_ID = "ESA/WorldCover/v200"
 BURNED_AREA_COLLECTION_ID = "MODIS/061/MCD64A1"
 ERA5_COLLECTION_ID = "ECMWF/ERA5_LAND/MONTHLY_AGGR"
 WDPA_COLLECTION_ID = "WCMC/WDPA/current/polygons"
+DEM_IMAGE_ID = "USGS/SRTMGL1_003"
 BERCHTESGADEN_WDPA_ID = 668
 
 DWD_RECENT_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent"
@@ -39,6 +41,13 @@ DWD_HISTORICAL_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/obser
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 AOI_COLOR = "#F1C75B"
 ALPHAEARTH_YEARS = set(range(2017, 2025))
+PREDICTION_STATION_ID = "00856"
+
+SCENARIO_SETTINGS = {
+    "Conservative": {"warming_per_year": 0.025, "drying_per_year": 0.15},
+    "Moderate": {"warming_per_year": 0.045, "drying_per_year": 0.35},
+    "Hot dry": {"warming_per_year": 0.075, "drying_per_year": 0.65},
+}
 
 DWD_STATIONS = [
     {"id": "19856", "name": "Schoenau am Koenigssee", "state": "Bayern", "lat": 47.6134, "lon": 12.9819, "elevation": 625, "distance_km": 7.4},
@@ -58,6 +67,7 @@ SOIL_SENSOR_SITES = [
 
 LAYER_META = [
     ("alphaearth", "Landscape patterns", "AlphaEarth embedding RGB for visual pattern discovery."),
+    ("prediction", "Predicted forest stress", "Explainable forest vulnerability score for the selected projection."),
     ("tree_cover", "Tree canopy", "Year-2000 tree canopy baseline."),
     ("tree_loss", "Tree-cover loss", "Cumulative forest loss to the selected year."),
     ("water", "Water and wetlands", "Recurring surface water and wetland context."),
@@ -72,19 +82,19 @@ LAYER_META = [
 VIEW_PRESETS = {
     "Stakeholder overview": {
         "copy": "Balanced forest, water, observation, and landscape evidence for a first walkthrough.",
-        "layers": {"alphaearth": True, "tree_cover": False, "tree_loss": True, "water": True, "habitat": False, "fire": False, "air_temperature": False, "soil_moisture": False, "weather_sensors": True, "soil_sensors": True},
+        "layers": {"alphaearth": True, "prediction": False, "tree_cover": False, "tree_loss": True, "water": True, "habitat": False, "fire": False, "air_temperature": False, "soil_moisture": False, "weather_sensors": True, "soil_sensors": True},
     },
     "Forest change": {
         "copy": "Prioritizes canopy, tree-cover loss, and landscape pattern change.",
-        "layers": {"alphaearth": True, "tree_cover": True, "tree_loss": True, "water": False, "habitat": False, "fire": False, "air_temperature": False, "soil_moisture": False, "weather_sensors": False, "soil_sensors": False},
+        "layers": {"alphaearth": True, "prediction": False, "tree_cover": True, "tree_loss": True, "water": False, "habitat": False, "fire": False, "air_temperature": False, "soil_moisture": False, "weather_sensors": False, "soil_sensors": False},
     },
     "Water and climate": {
         "copy": "Shows water, temperature, soil moisture, and local weather context together.",
-        "layers": {"alphaearth": False, "tree_cover": False, "tree_loss": False, "water": True, "habitat": False, "fire": False, "air_temperature": True, "soil_moisture": True, "weather_sensors": True, "soil_sensors": True},
+        "layers": {"alphaearth": False, "prediction": False, "tree_cover": False, "tree_loss": False, "water": True, "habitat": False, "fire": False, "air_temperature": True, "soil_moisture": True, "weather_sensors": True, "soil_sensors": True},
     },
     "Habitat and risk": {
         "copy": "Combines habitat, water, fire history, and field-observation placeholders.",
-        "layers": {"alphaearth": False, "tree_cover": True, "tree_loss": True, "water": True, "habitat": True, "fire": True, "air_temperature": False, "soil_moisture": False, "weather_sensors": True, "soil_sensors": True},
+        "layers": {"alphaearth": False, "prediction": True, "tree_cover": True, "tree_loss": True, "water": True, "habitat": True, "fire": True, "air_temperature": False, "soil_moisture": False, "weather_sensors": True, "soil_sensors": True},
     },
 }
 
@@ -95,7 +105,7 @@ def inject_theme_css() -> None:
     st.markdown(
         """
 <style>
-:root { --ww-bg: #07110c; --ww-ink: #f3f6ef; --ww-muted: #a7b9a7; --ww-line: rgba(168,215,168,.18); --ww-green: #a8d7a8; --ww-gold: #f1c75b; --ww-blue: #4ea8de; }
+:root { --ww-bg: #07110c; --ww-ink: #f3f6ef; --ww-muted: #a7b9a7; --ww-line: rgba(168,215,168,.18); --ww-green: #a8d7a8; --ww-gold: #f1c75b; --ww-blue: #4ea8de; --ww-red: #d9624b; }
 [data-testid="stAppViewContainer"] { background: var(--ww-bg); color: var(--ww-ink); }
 [data-testid="stHeader"] { background: rgba(7,17,12,.94); border-bottom: 1px solid var(--ww-line); }
 .block-container { max-width: 1780px; padding: 1.05rem 1.55rem 1.3rem; }
@@ -135,8 +145,9 @@ def inject_theme_css() -> None:
 .ww-insight strong { display:block; color:var(--ww-ink); font-size:.95rem; margin-bottom:.32rem; }
 .ww-insight p { color:rgba(243,246,239,.78); margin:0; font-size:.86rem; line-height:1.35; }
 .ww-selected { border:1px solid rgba(78,168,222,.35); border-radius:8px; padding:.55rem .7rem; background:rgba(78,168,222,.1); color:#d9efff; margin:.55rem 0 .75rem; font-size:.86rem; }
+.ww-method { border:1px solid rgba(168,215,168,.14); border-radius:8px; padding:.8rem .9rem; background:rgba(16,33,24,.62); color:rgba(243,246,239,.82); font-size:.88rem; line-height:1.42; }
 [data-testid="stIFrame"] { border:1px solid rgba(168,215,168,.22); border-radius:8px; overflow:hidden; box-shadow:0 20px 54px rgba(0,0,0,.34); }
-[data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:680; color:var(--ww-ink)!important; }
+[data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label, [data-testid="stRadio"] label { font-weight:680; color:var(--ww-ink)!important; }
 [data-testid="stAlert"] { border-radius:8px; }
 @media (max-width:1120px) { .block-container { padding:.9rem .8rem 1.1rem; } .ww-topbar,.ww-hero,.ww-map-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend { justify-content:flex-start; } .ww-title { font-size:1.8rem; } .ww-kpi-grid,.ww-insight-grid { grid-template-columns:1fr; } }
 </style>
@@ -485,6 +496,230 @@ def estimate_soil_reading(site: dict, year: int) -> dict[str, float]:
     return {"soil_temp": round(soil_temp, 1), "soil_moisture": round(max(8, min(70, soil_moisture)), 1), "ph": round(site["ph"] + seasonal * 0.06, 2), "carbon": round(site["carbon"] + seasonal * 0.25, 1)}
 
 
+def _clamp(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(upper, value))
+
+
+def risk_color(score: float) -> tuple[list[int], str, str]:
+    if score >= 68:
+        return [217, 98, 75, 205], "#d9624b", "High"
+    if score >= 45:
+        return [241, 199, 91, 190], "#f1c75b", "Watch"
+    return [85, 214, 138, 170], "#55d68a", "Lower"
+
+
+def bounds_to_key(bounds: list[list[float]]) -> str:
+    rounded_bounds = [[round(point[0], 5), round(point[1], 5)] for point in bounds]
+    return json.dumps(rounded_bounds, sort_keys=True)
+
+
+def build_fallback_environment_surface(bounds_key: str) -> list[dict]:
+    bounds = json.loads(bounds_key)
+    lats = [point[0] for point in bounds]
+    lons = [point[1] for point in bounds]
+    min_lat, max_lat = min(lats), max(lats)
+    min_lon, max_lon = min(lons), max(lons)
+    records = []
+    for y_idx in range(13):
+        lat = min_lat + (max_lat - min_lat) * (y_idx + 0.5) / 13
+        for x_idx in range(15):
+            lon = min_lon + (max_lon - min_lon) * (x_idx + 0.5) / 15
+            ridge = math.sin((lon - min_lon) * 28) + math.cos((lat - min_lat) * 34)
+            lake_distance = min(math.hypot(lat - 47.592, lon - 12.989), math.hypot(lat - 47.606, lon - 12.849))
+            records.append({
+                "lat": lat,
+                "lon": lon,
+                "elevation": 900 + ridge * 260 + (max_lat - lat) * 1300,
+                "slope": 18 + abs(ridge) * 12,
+                "tree_cover": _clamp(68 + ridge * 12 - lake_distance * 180, 10, 95),
+                "loss_year": 0,
+                "water": _clamp(85 - lake_distance * 1600, 0, 90),
+                "source": "fallback",
+            })
+    return records
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def sample_environment_surface(bounds_key: str, year: int) -> list[dict]:
+    bounds = json.loads(bounds_key)
+    lats = [point[0] for point in bounds]
+    lons = [point[1] for point in bounds]
+    min_lat, max_lat = min(lats), max(lats)
+    min_lon, max_lon = min(lons), max(lons)
+    features = []
+    for y_idx in range(13):
+        lat = min_lat + (max_lat - min_lat) * (y_idx + 0.5) / 13
+        for x_idx in range(15):
+            lon = min_lon + (max_lon - min_lon) * (x_idx + 0.5) / 15
+            features.append(ee.Feature(ee.Geometry.Point([lon, lat]), {"lat": lat, "lon": lon}))
+
+    points = ee.FeatureCollection(features)
+    dem = ee.Image(DEM_IMAGE_ID).select("elevation").rename("elevation")
+    slope = ee.Terrain.slope(dem).rename("slope")
+    tree_cover = get_hansen_image().select("treecover2000").rename("tree_cover")
+    loss_year = get_hansen_image().select("lossyear").rename("loss_year")
+    water = ee.Image(SURFACE_WATER_COLLECTION_ID).select("occurrence").rename("water")
+    image = dem.addBands(slope).addBands(tree_cover).addBands(loss_year).addBands(water)
+    sampled = image.sampleRegions(collection=points, scale=120, geometries=False, tileScale=2).getInfo()
+    records = []
+    for feature in sampled.get("features", []):
+        props = feature.get("properties", {})
+        if "elevation" not in props:
+            continue
+        records.append({
+            "lat": float(props.get("lat")),
+            "lon": float(props.get("lon")),
+            "elevation": float(props.get("elevation", 0)),
+            "slope": float(props.get("slope", 0)),
+            "tree_cover": float(props.get("tree_cover", 0)),
+            "loss_year": float(props.get("loss_year", 0)),
+            "water": float(props.get("water", 0)),
+            "source": "earth_engine",
+        })
+    if not records:
+        raise ValueError("No environmental samples returned for the selected area.")
+    return records
+
+
+def get_climate_signal(year: int, projection_year: int, scenario_name: str) -> dict:
+    scenario = SCENARIO_SETTINGS[scenario_name]
+    station = next((item for item in DWD_STATIONS if item["id"] == PREDICTION_STATION_ID), DWD_STATIONS[-1])
+    rows = get_dwd_annual_series(PREDICTION_STATION_ID)
+    if not rows:
+        projection_gap = max(0, projection_year - max(year, 2026))
+        return {
+            "station": station["name"],
+            "base_temp": None,
+            "recent_temp": None,
+            "temp_delta": 0.0,
+            "projected_temp_delta": round(projection_gap * scenario["warming_per_year"], 2),
+            "precip_delta_pct": 0.0,
+            "projected_precip_delta_pct": round(-projection_gap * scenario["drying_per_year"], 1),
+            "source_note": "DWD climate trend unavailable; projection uses scenario settings only.",
+        }
+
+    df = pd.DataFrame(rows)
+    base = df[(df["Year"] >= 2000) & (df["Year"] <= 2009)]
+    max_available_year = int(df["Year"].max())
+    analysis_year = min(max(year, 2000), max_available_year)
+    recent = df[(df["Year"] >= max(2000, analysis_year - 4)) & (df["Year"] <= analysis_year)]
+    if base.empty:
+        base = df.head(min(5, len(df)))
+    if recent.empty:
+        recent = df.tail(min(5, len(df)))
+
+    base_temp = float(base["Mean temp C"].mean())
+    recent_temp = float(recent["Mean temp C"].mean())
+    base_precip = float(base["Precip mm"].dropna().mean()) if not base["Precip mm"].dropna().empty else 0.0
+    recent_precip = float(recent["Precip mm"].dropna().mean()) if not recent["Precip mm"].dropna().empty else base_precip
+    precip_delta_pct = ((recent_precip - base_precip) / base_precip * 100) if base_precip else 0.0
+    projection_gap = max(0, projection_year - max(analysis_year, 2026))
+    projected_temp_delta = (recent_temp - base_temp) + projection_gap * scenario["warming_per_year"]
+    projected_precip_delta_pct = precip_delta_pct - projection_gap * scenario["drying_per_year"]
+    return {
+        "station": station["name"],
+        "base_temp": round(base_temp, 1),
+        "recent_temp": round(recent_temp, 1),
+        "temp_delta": round(recent_temp - base_temp, 2),
+        "projected_temp_delta": round(projected_temp_delta, 2),
+        "precip_delta_pct": round(precip_delta_pct, 1),
+        "projected_precip_delta_pct": round(projected_precip_delta_pct, 1),
+        "source_note": f"Climate signal uses DWD annual summaries from {station['name']}.",
+    }
+
+
+def score_prediction_row(row: dict, year: int, projection_year: int, scenario_name: str, climate_signal: dict) -> dict:
+    elevation = float(row.get("elevation") or 0)
+    slope = float(row.get("slope") or 0)
+    tree_cover = float(row.get("tree_cover") or 0)
+    loss_year = float(row.get("loss_year") or 0)
+    water = float(row.get("water") or 0)
+    observed_loss_year = 2000 + int(loss_year) if loss_year > 0 else None
+    loss_active = bool(observed_loss_year and observed_loss_year <= min(year, 2025))
+    recent_loss = bool(observed_loss_year and min(year, 2025) - observed_loss_year <= 5)
+
+    temp_pressure = _clamp(float(climate_signal["projected_temp_delta"]) / 2.5, 0, 1) * 22
+    drying_pressure = _clamp(-float(climate_signal["projected_precip_delta_pct"]) / 20, 0, 1) * 15
+    canopy_pressure = _clamp((58 - tree_cover) / 58, 0, 1) * 22
+    loss_pressure = (24 if loss_active else 0) + (7 if recent_loss else 0)
+    slope_pressure = _clamp((slope - 14) / 35, 0, 1) * 13
+    warm_elevation_pressure = _clamp((1220 - elevation) / 900, 0, 1) * 8
+    water_buffer = _clamp(water / 80, 0, 1) * 12
+    projection_pressure = _clamp((projection_year - year) / 14, 0, 1) * 5
+    score = _clamp(18 + temp_pressure + drying_pressure + canopy_pressure + loss_pressure + slope_pressure + warm_elevation_pressure + projection_pressure - water_buffer, 1, 99)
+    color, color_hex, label = risk_color(score)
+
+    drivers = {
+        "warming": temp_pressure,
+        "dryness": drying_pressure,
+        "low canopy": canopy_pressure,
+        "loss history": loss_pressure,
+        "steep terrain": slope_pressure,
+        "lower elevation": warm_elevation_pressure,
+    }
+    dominant = sorted(drivers.items(), key=lambda item: item[1], reverse=True)[:2]
+    reason = ", ".join(name for name, value in dominant if value > 2) or "balanced conditions"
+    if water_buffer > 7:
+        reason = f"{reason}; recurring water lowers stress"
+
+    return {
+        "lat": round(float(row["lat"]), 6),
+        "lon": round(float(row["lon"]), 6),
+        "elevation": round(elevation, 0),
+        "slope": round(slope, 1),
+        "tree_cover": round(tree_cover, 1),
+        "loss_year": int(loss_year) if loss_year else 0,
+        "water": round(water, 1),
+        "risk_score": round(score, 1),
+        "risk_label": label,
+        "color": color,
+        "color_hex": color_hex,
+        "height_risk": round(score * 28, 1),
+        "height_terrain": round(max(80, elevation * 0.55), 1),
+        "reason": reason,
+        "warming": round(temp_pressure, 1),
+        "dryness": round(drying_pressure, 1),
+        "low_canopy": round(canopy_pressure, 1),
+        "loss_history": round(loss_pressure, 1),
+        "steep_terrain": round(slope_pressure, 1),
+        "water_buffer": round(water_buffer, 1),
+        "source": row.get("source", "earth_engine"),
+    }
+
+
+def build_prediction_surface(bounds: list[list[float]], year: int, projection_year: int, scenario_name: str) -> tuple[pd.DataFrame, dict, Optional[str]]:
+    bounds_key = bounds_to_key(bounds)
+    climate_signal = get_climate_signal(year, projection_year, scenario_name)
+    note = None
+    try:
+        environment_rows = sample_environment_surface(bounds_key, min(year, 2025))
+    except Exception as exc:
+        environment_rows = build_fallback_environment_surface(bounds_key)
+        note = f"Prediction terrain is using a fallback surface because the public DEM sample was unavailable: {exc}"
+    records = [score_prediction_row(row, year, projection_year, scenario_name, climate_signal) for row in environment_rows]
+    return pd.DataFrame(records), climate_signal, note
+
+
+def add_prediction_surface_markers(m: folium.Map, prediction_df: pd.DataFrame) -> None:
+    if prediction_df.empty:
+        return
+    group = folium.FeatureGroup(name="Predicted forest stress", show=True)
+    for _, row in prediction_df.iterrows():
+        popup_html = f"""
+        <div style='font-family: sans-serif; min-width: 230px;'>
+          <strong>{row['risk_label']} stress | {row['risk_score']}/100</strong><br>
+          <span>{row['reason']}</span>
+          <table style='margin-top: 8px; width: 100%; font-size: 12px;'>
+            <tr><td>Elevation / slope</td><td>{row['elevation']:.0f} m / {row['slope']:.1f}</td></tr>
+            <tr><td>Tree cover</td><td>{row['tree_cover']:.1f}%</td></tr>
+            <tr><td>Water occurrence</td><td>{row['water']:.1f}%</td></tr>
+          </table>
+        </div>
+        """
+        folium.CircleMarker(location=[row["lat"], row["lon"]], radius=5.5, color="#07110c", weight=1, fill=True, fill_color=row["color_hex"], fill_opacity=0.72, tooltip=f"Predicted stress: {row['risk_score']}/100", popup=folium.Popup(popup_html, max_width=320)).add_to(group)
+    group.add_to(m)
+
+
 def add_dwd_weather_markers(m: folium.Map, year: int, layers: dict[str, bool]) -> list[str]:
     if not layers["weather_sensors"]:
         return []
@@ -560,21 +795,26 @@ def build_map(center: list[float], bounds: list[list[float]], basemap: str) -> f
     return m
 
 
-def render_topbar() -> None:
-    st.markdown("""
+def render_topbar(app_mode: str) -> None:
+    def nav_class(label: str) -> str:
+        return "active" if label == app_mode else ""
+
+    st.markdown(f"""
 <div class="ww-topbar">
   <div class="ww-brand"><div class="ww-mark">W</div><span>Whispering Woods</span></div>
-  <div class="ww-nav"><span class="active">Forest Map</span><span>Species Monitoring</span><span>3D View</span></div>
+  <div class="ww-nav"><span class="{nav_class('Map')}">Map</span><span class="{nav_class('3D View')}">3D View</span><span class="{nav_class('Predictions')}">Predictions</span></div>
 </div>
     """, unsafe_allow_html=True)
 
 
-def render_header(usage_mode: str, year: int, enabled_count: int, area_name: str, view_mode: str) -> None:
+def render_header(usage_mode: str, year: int, enabled_count: int, area_name: str, view_mode: str, app_mode: str, projection_year: int) -> None:
+    titles = {"Map": "Forest Intelligence Map", "3D View": "Terrain and Observation View", "Predictions": "Forest Vulnerability Forecast"}
     lens_copy = VIEW_PRESETS[view_mode]["copy"]
+    projection_status = f"Projection {projection_year}" if app_mode in {"3D View", "Predictions"} else f"{year}"
     st.markdown(f"""
 <div class="ww-hero">
-  <div><div class="ww-kicker">Stakeholder view | {area_name}</div><div class="ww-title">Forest Intelligence Map</div><div class="ww-hero-copy">{lens_copy}</div></div>
-  <div class="ww-status-row"><div class="ww-status">Earth Engine live</div><div class="ww-status gold">{usage_mode}</div><div class="ww-status">{year}</div><div class="ww-status">{enabled_count} layers</div></div>
+  <div><div class="ww-kicker">Stakeholder view | {area_name}</div><div class="ww-title">{titles[app_mode]}</div><div class="ww-hero-copy">{lens_copy}</div></div>
+  <div class="ww-status-row"><div class="ww-status">Earth Engine live</div><div class="ww-status gold">{usage_mode}</div><div class="ww-status">{projection_status}</div><div class="ww-status">{enabled_count} layers</div></div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -588,9 +828,14 @@ def apply_view_preset(view_mode: str) -> None:
         st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
 
 
-def render_layer_panel() -> tuple[int, str, str, dict[str, bool], str]:
+def render_layer_panel() -> tuple[str, int, int, str, str, str, str, dict[str, bool], str]:
     st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-panel-copy'>Pick a lens, then refine the active evidence layers.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-panel-copy'>Pick a workspace, then refine the evidence layers.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
+    st.markdown("<div class='ww-section-label'>WORKSPACE</div>", unsafe_allow_html=True)
+    app_mode = st.radio("Workspace", ["Map", "3D View", "Predictions"], index=0)
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
     st.markdown("<div class='ww-section-label'>LENS</div>", unsafe_allow_html=True)
     view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0)
@@ -601,7 +846,12 @@ def render_layer_panel() -> tuple[int, str, str, dict[str, bool], str]:
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
     st.markdown("<div class='ww-section-label'>TIME AND MAP</div>", unsafe_allow_html=True)
     year = st.slider("Analysis year", min_value=2000, max_value=2026, value=2024)
+    projection_year = st.slider("Projection year", min_value=2026, max_value=2040, value=2030)
+    risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1)
     basemap = st.selectbox("Map style", ["Satellite", "Light", "Terrain"], index=0)
+    height_mode = "Risk score"
+    if app_mode == "3D View":
+        height_mode = st.radio("3D height", ["Risk score", "Terrain"], index=0, horizontal=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
@@ -613,15 +863,15 @@ def render_layer_panel() -> tuple[int, str, str, dict[str, bool], str]:
 
     with st.expander("Custom AOI", expanded=False):
         geojson_input: str = st.text_area("GeoJSON polygon", "", height=124, help="Leave blank to use Berchtesgaden National Park.")
-    return year, basemap, geojson_input, layers, view_mode
+    return app_mode, year, projection_year, risk_scenario, height_mode, basemap, geojson_input, layers, view_mode
 
 
 def render_sources_panel() -> None:
     st.markdown("""
 <div class="ww-source-list">
   <div class="ww-source-item"><strong>Protected area boundary</strong><br>WDPA boundary for Berchtesgaden National Park, with local fallback.</div>
-  <div class="ww-source-item"><strong>Earth observation layers</strong><br>AlphaEarth, Hansen forest change, JRC water, ESA WorldCover, MODIS burned area.</div>
-  <div class="ww-source-item"><strong>Climate and soil context</strong><br>ERA5-Land monthly model fields for air temperature and top-layer soil moisture.</div>
+  <div class="ww-source-item"><strong>Earth observation layers</strong><br>AlphaEarth, Hansen forest change, JRC water, ESA WorldCover, MODIS burned area, and SRTM terrain.</div>
+  <div class="ww-source-item"><strong>Climate and soil context</strong><br>ERA5-Land monthly model fields plus an explainable local stress score.</div>
   <div class="ww-source-item"><strong>Local observations</strong><br>DWD daily climate station records plus clearly labelled prototype soil probes.</div>
 </div>
     """, unsafe_allow_html=True)
@@ -663,16 +913,35 @@ def render_observation_summary(year: int, view_mode: str, layers: dict[str, bool
         st.caption("Active evidence: " + ", ".join(active_labels))
 
 
-def render_map_heading(year: int, enabled_labels: list[tuple[str, str]], area_name: str) -> None:
+def render_prediction_summary(prediction_df: pd.DataFrame, climate_signal: dict, projection_year: int, scenario_name: str) -> None:
+    if prediction_df.empty:
+        return
+    mean_score = round(float(prediction_df["risk_score"].mean()), 1)
+    high_share = round(float((prediction_df["risk_score"] >= 68).mean() * 100), 0)
+    top = prediction_df.nlargest(1, "risk_score").iloc[0]
+    temp_delta = climate_signal.get("projected_temp_delta", 0)
+    precip_delta = climate_signal.get("projected_precip_delta_pct", 0)
+    st.markdown(f"""
+<div class="ww-kpi-grid">
+  <div class="ww-kpi"><span>Mean stress score</span><strong>{mean_score}/100</strong></div>
+  <div class="ww-kpi"><span>High-stress grid share</span><strong>{high_share:.0f}%</strong></div>
+  <div class="ww-kpi"><span>Climate signal</span><strong>{temp_delta:+.1f} C | {precip_delta:+.0f}% precip</strong></div>
+  <div class="ww-kpi"><span>Scenario hotspot</span><strong>{top['risk_score']:.1f}/100 | {top['risk_label']}</strong></div>
+</div>
+    """, unsafe_allow_html=True)
+    st.caption(f"Projection: {projection_year}, scenario: {scenario_name}. {climate_signal.get('source_note', '')}")
+
+
+def render_map_heading(year: int, enabled_labels: list[tuple[str, str]], area_name: str, title: str = "Forest evidence layers") -> None:
     legend_markup = "".join(f"<span class='ww-pill'><span class='ww-dot' style='background:{color}'></span>{label}</span>" for label, color in enabled_labels)
     st.markdown(f"""
-<div class="ww-map-head"><div><div class="ww-map-label">{area_name}</div><div class="ww-map-title">Forest evidence layers, {year}</div></div><div class="ww-legend">{legend_markup}</div></div>
+<div class="ww-map-head"><div><div class="ww-map-label">{area_name}</div><div class="ww-map-title">{title}, {year}</div></div><div class="ww-legend">{legend_markup}</div></div>
     """, unsafe_allow_html=True)
 
 
 def get_enabled_labels(layers: dict[str, bool]) -> list[tuple[str, str]]:
     labels = []
-    label_specs = [("alphaearth", "Landscape", "#55d68a"), ("tree_cover", "Tree canopy", "#2c8c4a"), ("tree_loss", "Forest loss", "#d9624b"), ("water", "Water", "#4ea8de"), ("habitat", "Habitat", "#b8d86b"), ("fire", "Burned area", "#ff9f1c"), ("air_temperature", "Air temp", "#ff6b4a"), ("soil_moisture", "Soil moisture", "#45b7d1"), ("weather_sensors", "DWD weather", "#4ea8de"), ("soil_sensors", "Soil probes", "#f1c75b")]
+    label_specs = [("alphaearth", "Landscape", "#55d68a"), ("prediction", "Predicted stress", "#d9624b"), ("tree_cover", "Tree canopy", "#2c8c4a"), ("tree_loss", "Forest loss", "#d9624b"), ("water", "Water", "#4ea8de"), ("habitat", "Habitat", "#b8d86b"), ("fire", "Burned area", "#ff9f1c"), ("air_temperature", "Air temp", "#ff6b4a"), ("soil_moisture", "Soil moisture", "#45b7d1"), ("weather_sensors", "DWD weather", "#4ea8de"), ("soil_sensors", "Soil probes", "#f1c75b")]
     for layer_id, label, color in label_specs:
         if layers.get(layer_id):
             labels.append((label, color))
@@ -729,6 +998,38 @@ def build_weather_table(year: int) -> pd.DataFrame:
     ])
 
 
+def build_sensor_frame(year: int) -> pd.DataFrame:
+    rows = []
+    try:
+        readings, _ = get_dwd_readings_for_year(year)
+    except Exception:
+        readings = []
+    for reading in readings:
+        rows.append({
+            "name": reading["name"],
+            "kind": "DWD weather",
+            "lat": reading["lat"],
+            "lon": reading["lon"],
+            "elevation": reading["elevation"],
+            "color": [78, 168, 222, 220],
+            "radius": 170,
+            "tooltip": f"{format_number(reading['mean_temp'], ' C')} | {format_number(reading['precipitation'], ' mm')} precip",
+        })
+    for site in SOIL_SENSOR_SITES:
+        reading = estimate_soil_reading(site, year)
+        rows.append({
+            "name": site["name"],
+            "kind": "Prototype soil probe",
+            "lat": site["lat"],
+            "lon": site["lon"],
+            "elevation": site["elevation"],
+            "color": [241, 199, 91, 230],
+            "radius": 145,
+            "tooltip": f"{reading['soil_moisture']}% moisture | pH {reading['ph']}",
+        })
+    return pd.DataFrame(rows)
+
+
 def build_insight_items(view_mode: str, year: int, layers: dict[str, bool], notes: list[str]) -> list[tuple[str, str, str]]:
     items = [("Lens", view_mode, VIEW_PRESETS[view_mode]["copy"])]
     if layers.get("alphaearth"):
@@ -736,6 +1037,8 @@ def build_insight_items(view_mode: str, year: int, layers: dict[str, bool], note
             items.append(("Landscape", "AlphaEarth active", "Embedding colors help reveal spatial pattern differences inside the park."))
         else:
             items.append(("Landscape", "AlphaEarth hidden", "AlphaEarth annual embeddings currently cover 2017-2024."))
+    if layers.get("prediction"):
+        items.append(("Forecast", "Stress surface active", "The prediction layer combines terrain, canopy, loss, water, and DWD climate trend signals."))
     if layers.get("tree_loss"):
         items.append(("Forest change", "Cumulative loss", "The red layer marks Hansen tree-cover loss up to the selected year."))
     if layers.get("water") or layers.get("soil_moisture"):
@@ -759,7 +1062,33 @@ def render_map_selection(map_state: Optional[dict]) -> None:
         st.markdown(f"<div class='ww-selected'><strong>Map point:</strong> {last_clicked['lat']:.5f}, {last_clicked['lng']:.5f}</div>", unsafe_allow_html=True)
 
 
-def render_evidence_board(year: int, view_mode: str, layers: dict[str, bool], notes: list[str]) -> None:
+def render_prediction_evidence(prediction_df: pd.DataFrame, climate_signal: dict, scenario_name: str, projection_year: int) -> None:
+    if prediction_df.empty:
+        return
+    drivers_tab, hotspots_tab, method_tab = st.tabs(["Prediction drivers", "Hotspots", "Model notes"])
+    with drivers_tab:
+        driver_df = pd.DataFrame([
+            {"Driver": "Warming", "Contribution": prediction_df["warming"].mean()},
+            {"Driver": "Dryness", "Contribution": prediction_df["dryness"].mean()},
+            {"Driver": "Low canopy", "Contribution": prediction_df["low_canopy"].mean()},
+            {"Driver": "Loss history", "Contribution": prediction_df["loss_history"].mean()},
+            {"Driver": "Steep terrain", "Contribution": prediction_df["steep_terrain"].mean()},
+            {"Driver": "Water buffer", "Contribution": -prediction_df["water_buffer"].mean()},
+        ])
+        st.bar_chart(driver_df.set_index("Driver"), height=280)
+    with hotspots_tab:
+        hotspots = prediction_df.nlargest(12, "risk_score")[["risk_score", "risk_label", "reason", "elevation", "slope", "tree_cover", "water", "lat", "lon"]]
+        st.dataframe(hotspots, use_container_width=True, hide_index=True)
+    with method_tab:
+        st.markdown(f"""
+<div class="ww-method">
+<strong>Projection {projection_year} | {scenario_name}</strong><br>
+The score is an explainable prototype index from 0-100. It combines public terrain, slope, tree canopy, tree-cover loss, recurring water, and the DWD annual climate signal from {climate_signal.get('station', 'the selected station')}. It is designed for stakeholder exploration, not operational hazard certification.
+</div>
+        """, unsafe_allow_html=True)
+
+
+def render_evidence_board(year: int, view_mode: str, layers: dict[str, bool], notes: list[str], prediction_df: Optional[pd.DataFrame] = None, climate_signal: Optional[dict] = None, scenario_name: str = "Moderate", projection_year: int = 2030) -> None:
     insights_tab, weather_tab, station_tab, sources_tab = st.tabs(["Insights", "Weather trend", "Station table", "Sources"])
     with insights_tab:
         markup = "".join(f"<div class='ww-insight'><span>{e}</span><strong>{t}</strong><p>{b}</p></div>" for e, t, b in build_insight_items(view_mode, year, layers, notes))
@@ -793,6 +1122,115 @@ def render_evidence_board(year: int, view_mode: str, layers: dict[str, bool], no
     with sources_tab:
         render_sources_panel()
         render_planned_layers()
+    if prediction_df is not None and climate_signal is not None and not prediction_df.empty:
+        render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
+
+
+def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> pdk.Deck:
+    terrain_df = prediction_df.copy()
+    terrain_df["height"] = terrain_df["height_terrain"] if height_mode == "Terrain" else terrain_df["height_risk"]
+    terrain_df["deck_tooltip"] = terrain_df.apply(lambda row: f"{row['risk_label']} stress: {row['risk_score']}/100<br>{row['reason']}<br>Elevation {row['elevation']:.0f} m", axis=1)
+    layers = [
+        pdk.Layer(
+            "ColumnLayer",
+            data=terrain_df,
+            get_position="[lon, lat]",
+            get_elevation="height",
+            get_fill_color="color",
+            radius=120,
+            coverage=0.82,
+            pickable=True,
+            auto_highlight=True,
+        )
+    ]
+    if not sensor_df.empty:
+        layers.append(
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=sensor_df,
+                get_position="[lon, lat]",
+                get_radius="radius",
+                get_fill_color="color",
+                get_line_color=[7, 17, 12, 230],
+                line_width_min_pixels=1,
+                pickable=True,
+                auto_highlight=True,
+            )
+        )
+    view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.7, pitch=58, bearing=-28)
+    return pdk.Deck(
+        map_style="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        initial_view_state=view_state,
+        layers=layers,
+        tooltip={"html": "<b>{name}{risk_label}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#07110c", "color": "#f3f6ef"}},
+    )
+
+
+def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> None:
+    if prediction_df.empty:
+        st.info("No 3D terrain samples are available for this area.")
+        return
+    deck = build_3d_deck(prediction_df, sensor_df, center, height_mode)
+    st.pydeck_chart(deck, use_container_width=True)
+
+
+def render_map_mode(year: int, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], view_mode: str, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
+    prediction_df: Optional[pd.DataFrame] = None
+    climate_signal: Optional[dict] = None
+    try:
+        m = build_map(center, bounds, basemap)
+        alphaearth_tile_count, notes = add_selected_layers(m, year, aoi, layers)
+        if layers.get("prediction"):
+            prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
+            add_prediction_surface_markers(m, prediction_df)
+            if prediction_note:
+                notes.append(prediction_note)
+        add_aoi_boundary(m, aoi, area_name)
+    except Exception as exc:
+        show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
+    folium.LayerControl(position="topright", collapsed=True).add_to(m)
+    render_map_heading(year, get_enabled_labels(layers), area_name)
+    map_state = st_folium(m, width=None, height=760)
+    render_map_selection(map_state)
+    captions = ["Visible map layers are public Earth Engine datasets, DWD daily climate observations, and clearly labelled prototype soil probes."]
+    if layers["alphaearth"] and alphaearth_tile_count:
+        captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
+    captions.extend(notes)
+    st.caption(" ".join(captions))
+    render_evidence_board(year, view_mode, layers, notes, prediction_df, climate_signal, scenario_name, projection_year)
+
+
+def render_predictions_mode(year: int, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
+    prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
+    render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+    map_layers = dict(layers)
+    map_layers["prediction"] = False
+    try:
+        m = build_map(center, bounds, basemap)
+        _, notes = add_selected_layers(m, year, aoi, map_layers)
+        add_prediction_surface_markers(m, prediction_df)
+        add_aoi_boundary(m, aoi, area_name)
+        if prediction_note:
+            notes.append(prediction_note)
+    except Exception as exc:
+        show_earth_engine_error("Earth Engine could not render the prediction map.", exc)
+    folium.LayerControl(position="topright", collapsed=True).add_to(m)
+    render_map_heading(projection_year, [("Predicted stress", "#d9624b"), ("DWD weather", "#4ea8de"), ("Soil probes", "#f1c75b")], area_name, title="Forecast surface")
+    map_state = st_folium(m, width=None, height=650)
+    render_map_selection(map_state)
+    st.caption(" ".join(notes) if notes else "Prediction is calculated in-app from public read-only layers and local DWD observations.")
+    render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
+
+
+def render_3d_mode(year: int, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float]) -> None:
+    prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
+    sensor_df = build_sensor_frame(year)
+    render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+    render_map_heading(projection_year, [("Risk columns", "#d9624b"), ("Terrain", "#55d68a"), ("Stations", "#4ea8de"), ("Soil probes", "#f1c75b")], "Berchtesgaden National Park", title="3D forest view")
+    render_3d_view(prediction_df, sensor_df, center, height_mode)
+    if prediction_note:
+        st.caption(prediction_note)
+    render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
 def main() -> None:
@@ -800,34 +1238,27 @@ def main() -> None:
     inject_theme_css()
     usage_mode = enforce_no_cost_guardrail()
     _init_ee_cached()
-    render_topbar()
     left, right = st.columns([3.35, 1.0], gap="large")
     with right:
-        year, basemap, geojson_input, layers, view_mode = render_layer_panel()
+        app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode = render_layer_panel()
         render_sources_panel()
         render_planned_layers()
+    render_topbar(app_mode)
     enabled_count = sum(1 for enabled in layers.values() if enabled)
     aoi, area_name = get_aoi(geojson_input)
+    try:
+        center, bounds = get_aoi_view(aoi)
+    except Exception as exc:
+        show_earth_engine_error("Earth Engine could not locate the selected area.", exc)
     with left:
-        render_header(usage_mode, year, enabled_count, area_name, view_mode)
+        render_header(usage_mode, year, enabled_count, area_name, view_mode, app_mode, projection_year)
         render_observation_summary(year, view_mode, layers)
-        try:
-            center, bounds = get_aoi_view(aoi)
-            m = build_map(center, bounds, basemap)
-            alphaearth_tile_count, notes = add_selected_layers(m, year, aoi, layers)
-            add_aoi_boundary(m, aoi, area_name)
-        except Exception as exc:
-            show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
-        folium.LayerControl(position="topright", collapsed=True).add_to(m)
-        render_map_heading(year, get_enabled_labels(layers), area_name)
-        map_state = st_folium(m, width=None, height=760)
-        render_map_selection(map_state)
-        captions = ["Visible map layers are public Earth Engine datasets, DWD daily climate observations, and clearly labelled prototype soil probes."]
-        if layers["alphaearth"] and alphaearth_tile_count:
-            captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
-        captions.extend(notes)
-        st.caption(" ".join(captions))
-        render_evidence_board(year, view_mode, layers, notes)
+        if app_mode == "Map":
+            render_map_mode(year, projection_year, scenario_name, basemap, layers, view_mode, aoi, area_name, center, bounds)
+        elif app_mode == "Predictions":
+            render_predictions_mode(year, projection_year, scenario_name, basemap, layers, aoi, area_name, center, bounds)
+        else:
+            render_3d_mode(year, projection_year, scenario_name, height_mode, bounds, center)
 
 
 if __name__ == "__main__":
