@@ -1,18 +1,15 @@
 # Whispering Woods
 
-Whispering Woods is a prototype Streamlit dashboard for exploring conservation-relevant forest information layers in a stakeholder-facing map interface. The main app combines public Google Earth Engine datasets around Berchtesgaden National Park, nearby DWD weather station observations, a derived 3D terrain view, an explainable forest-stress prediction surface, and clearly labelled prototype soil probes. A no-cost guardrail is included for non-commercial use.
+Whispering Woods is a prototype Streamlit dashboard for exploring conservation-relevant forest information layers in a stakeholder-facing map interface. The active app focuses on Berchtesgaden National Park and combines public Google Earth Engine datasets, nearby DWD weather station observations, a derived 3D terrain view, an explainable forest-stress prediction surface, and clearly labelled prototype soil probes.
 
-## Files
+The project has an explicit no-cost guardrail for non-commercial thesis, research, conservation, and stakeholder demonstration use.
 
-- `app.py`: Earlier Streamlit dashboard for sample NDVI, NDWI, and EVI data.
+## Active app
+
 - `app_alphaearth.py`: Main stakeholder map app for Whispering Woods forest intelligence layers.
-- `app_alphaearth_diff.py`: Streamlit app for comparing AlphaEarth embedding bands between two years.
-- `sample_ndvi_data.csv`: Example dataset with coordinates, dates, NDVI, NDWI, and EVI values.
-- `requirements.txt`: Python dependencies needed to run the apps.
+- `requirements.txt`: Python dependencies needed to run the app.
 
-## Main stakeholder map
-
-Run the main stakeholder app with:
+Run the app with:
 
 ```bash
 streamlit run app_alphaearth.py
@@ -20,14 +17,16 @@ streamlit run app_alphaearth.py
 
 The default area of interest is Berchtesgaden National Park. The app first tries to use the WDPA protected-area polygon (`WDPAID 668`) from Earth Engine, and falls back to a local park-scale polygon if that query is unavailable.
 
-The stakeholder interface is designed as an interactive forest intelligence map:
+## Stakeholder interface
+
+The app is designed as an interactive forest intelligence map:
 
 - Workspace modes: Map, 3D View, and Predictions.
-- Exploration lenses: Stakeholder overview, Forest change, Water and climate, and Habitat and risk. Each lens sets sensible default layers that can still be refined manually.
+- Exploration lenses: Stakeholder overview, Forest change, Water and climate, and Habitat and risk.
 - Timeline slider: 2000-2026.
 - Projection controls: 2026-2040 scenario controls for the predictive stress surface.
-- Interactive map markers: DWD weather stations and prototype soil probes can be clicked for detail popups.
-- Evidence board: insight cards, a DWD annual weather trend chart, a sortable station table, prediction drivers, hotspots, and source notes.
+- Interactive markers: DWD weather stations and prototype soil probes.
+- Evidence board: insight cards, DWD annual weather trend, station table, prediction drivers, hotspots, and source notes.
 - Map styles: satellite, light, and terrain.
 - Custom AOI: optional GeoJSON polygon input for testing another area.
 
@@ -40,7 +39,9 @@ Some layers have narrower availability and are shown only when the selected year
 
 AlphaEarth does not provide a native 3D scene. In this app, AlphaEarth remains a 2D annual embedding layer. The 3D View is derived by combining public terrain samples, the prediction surface, DWD stations, and prototype soil probes with `pydeck`.
 
-The map currently supports these real public layers and feeds:
+## Data sources
+
+The app currently supports these real public layers and feeds:
 
 - WDPA protected-area boundary for Berchtesgaden National Park.
 - AlphaEarth annual satellite embeddings for landscape pattern exploration.
@@ -52,69 +53,49 @@ The map currently supports these real public layers and feeds:
 - SRTM terrain samples for the derived 3D and prediction surfaces.
 - DWD Climate Data Center daily climate station observations for nearby active stations.
 
-The prediction surface is an explainable prototype score from 0-100. It combines terrain elevation, slope, canopy cover, historical tree-cover loss, recurring water, DWD climate trend, and a selected warming/drying scenario. It is intended for stakeholder exploration and thesis prototyping, not operational hazard certification.
+External source links:
 
-The DWD weather station layer uses official daily climate records from the DWD Open Data Climate Data Center. The nearest configured stations are:
+- DWD daily climate observations: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/`
+- DWD recent station files: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/`
+- DWD station metadata: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/KL_Tageswerte_Beschreibung_Stationen.txt`
+- AlphaEarth Satellite Embedding V1: `https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_SATELLITE_EMBEDDING_V1_ANNUAL`
+- Google Earth Engine public datasets listed in `app_alphaearth.py`.
 
-- Schoenau am Koenigssee (`19856`), about 7.4 km from the park center.
-- Piding (`07424`), about 24.9 km from the park center.
-- Siegsdorf-Hoell (`07105`), about 38.6 km from the park center.
-- Waging am See-Schnoebling (`02573`), about 47.4 km from the park center.
-- Chieming (`00856`), about 48.2 km from the park center.
+## Prediction caveat
 
-For each selected year, the app tries to show the latest available daily record in that year. For older years, some newer stations do not have data; the app reports that gap instead of inventing values. The annual DWD trend panel defaults to Chieming because it has long coverage across the 2000-2026 timeline.
+The prediction surface is an explainable prototype score from 0-100. It combines terrain elevation, slope, canopy cover, historical tree-cover loss, recurring water, DWD climate trend, and a selected warming/drying scenario.
 
-The app also includes prototype soil probe markers for stakeholder workflow design:
+It is intended for stakeholder exploration and thesis prototyping, not operational hazard certification.
+
+## Prototype-only sources
+
+The app includes prototype soil probe markers for stakeholder workflow design:
 
 - Soil moisture.
 - Soil temperature.
 - Soil pH.
 - Soil organic carbon.
 
-These soil probe values are deterministic prototype readings, not live sensor feeds. They are intended to show where live soil probes, ranger observations, or field campaigns could plug into the stakeholder interface later.
+These values are deterministic prototype readings, not live sensor feeds. They show where live soil probes, ranger observations, or field campaigns could plug into the stakeholder interface later.
 
 Prototype-only future integrations are shown separately in the UI as planned layers, not as active evidence: inventory trees, species observations, trail impact reports, and ranger field notes.
 
-## Data sources
-
-- DWD daily climate observations: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/`
-- DWD recent station files: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/`
-- DWD station metadata: `https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/KL_Tageswerte_Beschreibung_Stationen.txt`
-- AlphaEarth Satellite Embedding V1: `https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_SATELLITE_EMBEDDING_V1_ANNUAL`
-- Google Earth Engine public datasets listed in the app source.
-
-## Running the sample NDVI dashboard locally
-
-1. Install the dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the older sample dashboard using Streamlit:
-
-```bash
-streamlit run app.py
-```
-
-The sample dashboard opens in your browser and shows vegetation indices and statistics for selected dates.
-
 ## No-cost guardrail
 
-This project is intended to avoid generating costs. The Earth Engine apps should be run only with an Earth Engine project registered for eligible non-commercial, research, conservation, or impact use.
+This project is intended to avoid generating costs. The Earth Engine app should be run only with an Earth Engine project registered for eligible non-commercial, research, conservation, or impact use.
 
 To keep the project no-cost:
 
 - Register the Google Cloud project for non-commercial Earth Engine access.
-- Keep `EE_USAGE_MODE` set to `noncommercial`, `research`, `conservation`, or `impact`. If it is set to `commercial`, `paid`, `billable`, `enterprise`, `government_operational`, or `production_paid`, the Earth Engine apps stop before initializing Earth Engine.
+- Keep `EE_USAGE_MODE` set to `noncommercial`, `research`, `conservation`, or `impact`. If it is set to `commercial`, `paid`, `billable`, `enterprise`, `government_operational`, or `production_paid`, the app stops before initializing Earth Engine.
 - Do not switch the Earth Engine project to commercial/paid use unless cost generation is intentionally approved.
 - Do not add batch exports to Google Cloud Storage, BigQuery, Vertex AI, paid Maps APIs, or other billable Google Cloud services.
-- Keep the apps read-only. The current code reads public Earth Engine datasets, reads public DWD open-data files, renders map layers, samples a compact terrain grid, and calculates predictions inside Streamlit; it does not export files, write Earth Engine assets, train cloud models, or create cloud resources.
+- Keep the app read-only. The current code reads public Earth Engine datasets, reads public DWD open-data files, renders map layers, samples a compact terrain grid, and calculates predictions inside Streamlit; it does not export files, write Earth Engine assets, train cloud models, or create cloud resources.
 - Monitor the Streamlit app after deployment and stop it if Google/Streamlit reports quota, billing, or paid-plan prompts.
 
 ## Earth Engine setup
 
-The Earth Engine apps require a registered Google Cloud project plus service-account credentials. In Streamlit Cloud, add these secrets in the app settings:
+The app requires a registered Google Cloud project plus service-account credentials. In Streamlit Cloud, add these secrets in the app settings:
 
 ```toml
 EE_SERVICE_ACCOUNT = "your-service-account@your-project.iam.gserviceaccount.com"
