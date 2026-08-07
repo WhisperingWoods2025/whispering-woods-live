@@ -995,7 +995,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     lat_span, lon_span = stats["lat_span"], stats["lon_span"]
     seed = (int(signal["wind_direction"]) + int(float(signal["precipitation"] or 0) * 10)) / 57.0
     wind = clamp(float(signal["wind"] or 0) / 9, 0, 1)
-    cloud_dx, cloud_dy = screen_motion_vector(float(signal["wind_direction"]), 26 + wind * 40)
+    cloud_dx, cloud_dy = screen_motion_vector(float(signal["wind_direction"]), 90 + wind * 120)
     css_angle = 90 - float(signal["wind_direction"])
 
     payload = {"clouds": [], "wind": [], "rain": []}
@@ -1004,61 +1004,74 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
             payload["clouds"].append({
                 "lat": min_lat + lat_span * (0.14 + ((idx * 0.17 + seed * 0.07) % 0.72)),
                 "lon": min_lon + lon_span * (0.12 + ((idx * 0.21 + seed * 0.05) % 0.76)),
-                "size": round(96 + idx % 3 * 24 + signal["cloud"] * 36),
-                "opacity": round(0.22 + signal["cloud"] * 0.22, 2),
+                "size": round(126 + idx % 3 * 36 + signal["cloud"] * 50),
+                "opacity": round(0.34 + signal["cloud"] * 0.34, 2),
                 "dx": round(cloud_dx * (0.75 + idx * 0.08), 1),
                 "dy": round(cloud_dy * (0.75 + idx * 0.08), 1),
                 "delay": round(idx * -2.8, 1),
-                "duration": round(18 - wind * 5 + idx * 0.8, 1),
+                "duration": round(10.5 - wind * 2.4 + idx * 0.6, 1),
             })
     if layers.get("wind_flow"):
-        for idx in range(14):
+        for idx in range(18):
             payload["wind"].append({
-                "lat": min_lat + lat_span * (0.08 + idx * 0.065),
-                "lon": min_lon + lon_span * (0.06 + ((idx * 0.18 + seed * 0.31) % 0.88)),
+                "lat": min_lat + lat_span * (0.06 + idx * 0.052),
+                "lon": min_lon + lon_span * (0.04 + ((idx * 0.17 + seed * 0.31) % 0.90)),
                 "angle": round(css_angle, 1),
-                "length": round(46 + wind * 38 + (idx % 3) * 9),
-                "opacity": round(0.28 + wind * 0.42, 2),
-                "delay": round(idx * -0.35, 2),
-                "duration": round(2.8 - wind * 1.1, 2),
+                "length": round(94 + wind * 86 + (idx % 3) * 16),
+                "opacity": round(0.52 + wind * 0.36, 2),
+                "delay": round(idx * -0.22, 2),
+                "duration": round(2.6 - wind * 0.75, 2),
+                "travel": round(46 + wind * 74 + (idx % 4) * 12),
             })
     if layers.get("precipitation") and signal["precip_intensity"] > 0.03:
-        for idx in range(18):
+        for idx in range(28):
             payload["rain"].append({
                 "lat": min_lat + lat_span * (0.07 + ((idx * 0.12 + seed * 0.13) % 0.84)),
                 "lon": min_lon + lon_span * (0.07 + ((idx * 0.27 + seed * 0.09) % 0.84)),
                 "angle": round(css_angle + 18, 1),
-                "opacity": round(0.20 + signal["precip_intensity"] * 0.50, 2),
-                "delay": round(idx * -0.18, 2),
-                "duration": round(1.25 - signal["precip_intensity"] * 0.35, 2),
+                "opacity": round(0.38 + signal["precip_intensity"] * 0.46, 2),
+                "delay": round(idx * -0.11, 2),
+                "duration": round(0.95 - signal["precip_intensity"] * 0.22, 2),
             })
 
     style = """
 <style>
-.ww-motion-layer { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:650; overflow:hidden; }
+.ww-motion-layer { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:850; overflow:hidden; }
 .ww-motion-layer * { pointer-events:none; }
-.ww-motion-cloud { position:absolute; border-radius:999px; background:radial-gradient(circle at 35% 45%, rgba(255,255,255,.96), rgba(226,235,231,.68) 48%, rgba(226,235,231,0) 72%); filter:blur(1.2px); mix-blend-mode:screen; animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-wind { position:absolute; width:var(--length); height:18px; transform:translate(-50%,-50%) rotate(var(--angle)); opacity:var(--opacity); }
-.ww-motion-wind i { position:absolute; left:0; top:8px; width:100%; height:2px; border-radius:99px; background:linear-gradient(90deg, rgba(47,111,141,0), rgba(47,111,141,.86)); animation:ww-wind-flow var(--duration) linear infinite; animation-delay:var(--delay); }
-.ww-motion-wind i:after { content:""; position:absolute; right:-1px; top:-4px; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:8px solid rgba(47,111,141,.86); }
-.ww-motion-rain { position:absolute; width:46px; height:62px; transform:translate(-50%,-50%) rotate(var(--angle)); opacity:var(--opacity); }
-.ww-motion-rain span { position:absolute; top:0; width:2px; height:22px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.82)); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .16s); }
-.ww-motion-rain span:nth-child(1) { left:10px; --i:0; }
-.ww-motion-rain span:nth-child(2) { left:22px; --i:1; }
+.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.16); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.92), rgba(209,224,224,.72) 46%, rgba(154,181,187,.28) 66%, rgba(154,181,187,0) 78%); filter:blur(.5px); box-shadow:0 16px 44px rgba(52,120,169,.16); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-wind { position:absolute; width:var(--length); height:24px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-wind-sweep var(--duration) ease-in-out infinite; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-wind i { position:absolute; left:0; top:11px; width:100%; height:3px; border-radius:99px; background:linear-gradient(90deg, rgba(22,92,119,0), rgba(22,92,119,.92) 54%, rgba(255,255,255,.86)); box-shadow:0 0 12px rgba(35,119,150,.35); animation:ww-wind-flow calc(var(--duration) * .82) linear infinite; animation-delay:var(--delay); }
+.ww-motion-wind i:after { content:""; position:absolute; right:-2px; top:-5px; width:0; height:0; border-top:7px solid transparent; border-bottom:7px solid transparent; border-left:11px solid rgba(22,92,119,.92); filter:drop-shadow(0 0 5px rgba(255,255,255,.72)); }
+.ww-motion-rain { position:absolute; width:70px; height:92px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-rain-cell calc(var(--duration) * 2.5) linear infinite; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-rain span { position:absolute; top:0; width:3px; height:34px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.94) 54%, rgba(255,255,255,.78)); box-shadow:0 0 10px rgba(82,154,198,.32); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .09s); }
+.ww-motion-rain span:nth-child(1) { left:8px; --i:0; }
+.ww-motion-rain span:nth-child(2) { left:21px; --i:1; }
 .ww-motion-rain span:nth-child(3) { left:34px; --i:2; }
+.ww-motion-rain span:nth-child(4) { left:47px; --i:3; }
+.ww-motion-rain span:nth-child(5) { left:60px; --i:4; }
 @keyframes ww-cloud-drift {
   from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
-  to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.06); }
+  to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.10); }
+}
+@keyframes ww-wind-sweep {
+  from { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(calc(var(--travel) * -1)); opacity:.04; }
+  18% { opacity:var(--opacity); }
+  74% { opacity:var(--opacity); }
+  to { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(var(--travel)); opacity:.06; }
 }
 @keyframes ww-wind-flow {
-  from { transform:translateX(-22px); opacity:.05; }
+  from { transform:translateX(-34px); opacity:.05; }
   35% { opacity:1; }
-  to { transform:translateX(26px); opacity:0; }
+  to { transform:translateX(42px); opacity:0; }
+}
+@keyframes ww-rain-cell {
+  from { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(-18px); }
+  to { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(18px); }
 }
 @keyframes ww-rain-run {
-  from { transform:translateY(-24px); opacity:0; }
+  from { transform:translateY(-34px); opacity:0; }
   25% { opacity:1; }
-  to { transform:translateY(44px); opacity:0; }
+  to { transform:translateY(76px); opacity:0; }
 }
 </style>
 """
@@ -1102,12 +1115,13 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     setBase(el, item);
     el.style.setProperty("--angle", item.angle + "deg");
     el.style.setProperty("--length", item.length + "px");
+    el.style.setProperty("--travel", item.travel + "px");
     register(el, item);
   });
   payload.rain.forEach(function(item) {
     const el = document.createElement("div");
     el.className = "ww-motion-rain";
-    el.innerHTML = "<span></span><span></span><span></span>";
+    el.innerHTML = "<span></span><span></span><span></span><span></span><span></span>";
     setBase(el, item);
     el.style.setProperty("--angle", item.angle + "deg");
     register(el, item);
