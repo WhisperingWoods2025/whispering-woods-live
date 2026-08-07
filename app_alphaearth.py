@@ -1020,6 +1020,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
             "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.03),
             "angle": round(css_angle, 1),
             "wind_strength": round(wind, 2),
+            "precip_intensity": round(signal["precip_intensity"], 2),
+            "seed": round(seed, 3),
         },
     }
     if layers.get("cloud_veil"):
@@ -1034,29 +1036,6 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
                 "delay": round(idx * -4.2, 1),
                 "duration": round(18.0 - wind * 2.8 + idx * 0.8, 1),
             })
-    if layers.get("wind_flow"):
-        for idx in range(18):
-            payload["wind"].append({
-                "lat": min_lat + lat_span * (0.06 + idx * 0.052),
-                "lon": min_lon + lon_span * (0.04 + ((idx * 0.17 + seed * 0.31) % 0.90)),
-                "angle": round(css_angle, 1),
-                "length": round(52 + wind * 52 + (idx % 3) * 10),
-                "opacity": round(0.22 + wind * 0.20, 2),
-                "delay": round(idx * -0.36, 2),
-                "duration": round(5.8 - wind * 1.0, 2),
-                "travel": round(34 + wind * 44 + (idx % 4) * 8),
-            })
-    if layers.get("precipitation") and signal["precip_intensity"] > 0.03:
-        for idx in range(28):
-            payload["rain"].append({
-                "lat": min_lat + lat_span * (0.07 + ((idx * 0.12 + seed * 0.13) % 0.84)),
-                "lon": min_lon + lon_span * (0.07 + ((idx * 0.27 + seed * 0.09) % 0.84)),
-                "angle": round(css_angle + 18, 1),
-                "opacity": round(0.18 + signal["precip_intensity"] * 0.20, 2),
-                "delay": round(idx * -0.16, 2),
-                "duration": round(1.65 - signal["precip_intensity"] * 0.24, 2),
-            })
-
     style = """
 <style>
 .ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:1000; overflow:hidden; isolation:isolate; }
@@ -1064,21 +1043,16 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 .ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:normal; }
 .ww-motion-badge { position:absolute; right:12px; top:12px; z-index:3; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
 .ww-motion-badge i { width:6px; height:6px; border-radius:99px; background:#2f9ca2; box-shadow:0 0 0 0 rgba(47,156,162,.34); animation:ww-motion-dot 2.2s ease-out infinite; }
-.ww-motion-cloud-shelf { position:absolute; left:-22%; top:3%; width:144%; height:43%; opacity:.28; filter:blur(1.2px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.54), rgba(211,225,226,.26) 28%, rgba(211,225,226,0) 52%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.48), rgba(192,214,218,.24) 32%, rgba(192,214,218,0) 58%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.50), rgba(202,219,221,.22) 32%, rgba(202,219,221,0) 60%); animation:ww-viewport-cloud 21s ease-in-out infinite alternate; }
-.ww-motion-wind-band { position:absolute; left:-36%; width:172%; height:12px; transform:rotate(var(--angle)); opacity:.34; animation:ww-viewport-wind var(--speed) linear infinite; animation-delay:var(--delay); }
-.ww-motion-wind-band i { display:block; height:100%; background:linear-gradient(90deg, rgba(30,104,127,0) 0%, rgba(30,104,127,.05) 30%, rgba(30,104,127,.26) 48%, rgba(255,255,255,.52) 50%, rgba(30,104,127,.22) 53%, rgba(30,104,127,.04) 72%, rgba(30,104,127,0) 100%); filter:drop-shadow(0 0 4px rgba(42,124,154,.16)); }
-.ww-motion-rain-curtain { position:absolute; inset:-24%; opacity:.16; transform:rotate(var(--angle)); background:repeating-linear-gradient(90deg, rgba(82,154,198,0) 0 30px, rgba(82,154,198,.34) 30px 31px, rgba(255,255,255,.26) 31px 32px, rgba(82,154,198,0) 32px 56px); animation:ww-viewport-rain 1.8s linear infinite; filter:drop-shadow(0 0 4px rgba(52,120,169,.10)); }
+.ww-motion-cloud-shelf { position:absolute; left:-22%; top:3%; width:144%; height:43%; opacity:.22; filter:blur(1.6px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.44), rgba(211,225,226,.18) 28%, rgba(211,225,226,0) 52%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.38), rgba(192,214,218,.18) 32%, rgba(192,214,218,0) 58%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.40), rgba(202,219,221,.16) 32%, rgba(202,219,221,0) 60%); animation:ww-viewport-cloud 26s ease-in-out infinite alternate; }
+.ww-wind-streamfield { position:absolute; inset:-6%; width:112%; height:112%; opacity:var(--wind-alpha); transform:rotate(var(--angle)); transform-origin:center; filter:drop-shadow(0 0 2px rgba(255,255,255,.28)); mix-blend-mode:screen; }
+.ww-wind-streamfield path { fill:none; stroke:rgba(226,248,255,.56); stroke-width:.56; stroke-linecap:round; stroke-dasharray:10 18; stroke-dashoffset:0; vector-effect:non-scaling-stroke; animation:ww-streamline-drift var(--speed) linear infinite; animation-delay:var(--delay); }
+.ww-wind-streamfield path:nth-child(3n) { stroke:rgba(190,234,248,.42); stroke-width:.46; stroke-dasharray:7 19; }
+.ww-wind-streamfield path:nth-child(4n) { stroke:rgba(255,255,255,.48); stroke-width:.38; stroke-dasharray:5 17; }
+.ww-wind-streamfield path:nth-child(7n) { opacity:.62; }
+.ww-precip-radar { position:absolute; inset:-18%; opacity:var(--rain-alpha); filter:blur(10px) saturate(1.25); mix-blend-mode:multiply; background:radial-gradient(ellipse at 66% 58%, rgba(35,100,255,.58) 0 18%, rgba(35,100,255,.28) 28%, rgba(35,100,255,0) 48%), radial-gradient(ellipse at 42% 72%, rgba(107,96,245,.44) 0 15%, rgba(107,96,245,.22) 26%, rgba(107,96,245,0) 47%), radial-gradient(ellipse at 80% 72%, rgba(183,82,216,.36) 0 12%, rgba(183,82,216,.18) 24%, rgba(183,82,216,0) 42%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.32) 0 14%, rgba(91,180,255,.12) 28%, rgba(91,180,255,0) 45%); animation:ww-radar-drift 18s ease-in-out infinite alternate; }
+.ww-precip-radar:before { content:""; position:absolute; inset:-4%; opacity:.72; background:radial-gradient(ellipse at 58% 46%, rgba(255,255,255,.88) 0 5%, rgba(255,255,255,.30) 9%, rgba(255,255,255,0) 18%), radial-gradient(ellipse at 46% 62%, rgba(255,255,255,.60) 0 4%, rgba(255,255,255,0) 14%), radial-gradient(ellipse at 72% 70%, rgba(255,255,255,.46) 0 4%, rgba(255,255,255,0) 13%); animation:ww-radar-holes 11s ease-in-out infinite alternate; }
+.ww-precip-radar:after { content:""; position:absolute; inset:0; opacity:.52; background:radial-gradient(ellipse at 68% 58%, rgba(31,91,235,.42) 0 12%, rgba(31,91,235,0) 30%), radial-gradient(ellipse at 78% 68%, rgba(177,73,205,.34) 0 10%, rgba(177,73,205,0) 26%); animation:ww-radar-pulse 8.5s ease-in-out infinite alternate; }
 .ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.07); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.68), rgba(209,224,224,.36) 47%, rgba(154,181,187,.13) 68%, rgba(154,181,187,0) 80%); filter:blur(1px); box-shadow:0 10px 32px rgba(52,120,169,.08); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-wind { position:absolute; width:var(--length); height:14px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-wind-sweep var(--duration) ease-in-out infinite; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-wind i { position:absolute; left:0; top:6px; width:100%; height:1.5px; border-radius:99px; background:linear-gradient(90deg, rgba(22,92,119,0), rgba(22,92,119,.66) 58%, rgba(255,255,255,.62)); box-shadow:0 0 7px rgba(35,119,150,.18); animation:ww-wind-flow calc(var(--duration) * .9) linear infinite; animation-delay:var(--delay); }
-.ww-motion-wind i:after { content:""; position:absolute; right:-1px; top:-2px; width:5px; height:5px; border-radius:99px; background:rgba(22,92,119,.42); box-shadow:0 0 6px rgba(255,255,255,.45); }
-.ww-motion-rain { position:absolute; width:42px; height:58px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-rain-cell calc(var(--duration) * 2.5) linear infinite; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-rain span { position:absolute; top:0; width:1.5px; height:21px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.62) 58%, rgba(255,255,255,.48)); box-shadow:0 0 6px rgba(82,154,198,.14); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .12s); }
-.ww-motion-rain span:nth-child(1) { left:5px; --i:0; }
-.ww-motion-rain span:nth-child(2) { left:13px; --i:1; }
-.ww-motion-rain span:nth-child(3) { left:21px; --i:2; }
-.ww-motion-rain span:nth-child(4) { left:29px; --i:3; }
-.ww-motion-rain span:nth-child(5) { left:37px; --i:4; }
 @keyframes ww-cloud-drift {
   from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
   to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.10); }
@@ -1115,6 +1089,24 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   from { background-position:0 0; }
   to { background-position:52px 72px; }
 }
+@keyframes ww-streamline-drift {
+  from { stroke-dashoffset:36; opacity:.16; }
+  28% { opacity:.92; }
+  76% { opacity:.72; }
+  to { stroke-dashoffset:-34; opacity:.16; }
+}
+@keyframes ww-radar-drift {
+  from { transform:translate3d(-3%,1%,0) scale(1); }
+  to { transform:translate3d(4%,-2%,0) scale(1.035); }
+}
+@keyframes ww-radar-holes {
+  from { transform:translate3d(-2%,1%,0) scale(.98); opacity:.62; }
+  to { transform:translate3d(3%,-1%,0) scale(1.04); opacity:.80; }
+}
+@keyframes ww-radar-pulse {
+  from { transform:scale(.98); opacity:.34; }
+  to { transform:scale(1.04); opacity:.64; }
+}
 @keyframes ww-motion-badge-pulse {
   from { transform:translateY(0); opacity:.72; }
   to { transform:translateY(1px); opacity:.94; }
@@ -1140,23 +1132,64 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const nodes = [];
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
+  stage.style.setProperty("--wind-alpha", (0.38 + payload.stage.wind_strength * 0.20).toFixed(2));
+  stage.style.setProperty("--rain-alpha", (0.24 + payload.stage.precip_intensity * 0.34).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
+  function addWindStreamfield() {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("class", "ww-wind-streamfield");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.style.setProperty("--angle", payload.stage.angle + "deg");
+    const count = Math.round(44 + payload.stage.wind_strength * 24);
+    for (let idx = 0; idx < count; idx += 1) {
+      const col = idx % 8;
+      const row = Math.floor(idx / 8);
+      const x = -14 + col * 16 + ((idx * 13 + payload.stage.seed * 11) % 7);
+      const y = -4 + row * 12 + ((idx * 17 + payload.stage.seed * 9) % 8);
+      const sweep = 24 + (idx % 5) * 5 + payload.stage.wind_strength * 9;
+      const bend = ((idx % 6) - 2.5) * 1.8 + Math.sin(idx + payload.stage.seed) * 4.5;
+      const d = [
+        "M", x.toFixed(2), y.toFixed(2),
+        "C", (x + sweep * .28).toFixed(2), (y - bend).toFixed(2),
+        (x + sweep * .66).toFixed(2), (y + bend * .55).toFixed(2),
+        (x + sweep).toFixed(2), (y + bend * .18).toFixed(2)
+      ].join(" ");
+      const path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", d);
+      path.style.setProperty("--speed", (9.4 - payload.stage.wind_strength * 2.1 + (idx % 7) * .38).toFixed(2) + "s");
+      path.style.setProperty("--delay", (-idx * .16).toFixed(2) + "s");
+      svg.appendChild(path);
+    }
+    const curls = [[20,22,8], [74,24,6], [34,72,7], [82,78,9]];
+    curls.forEach(function(item, idx) {
+      const cx = item[0], cy = item[1], r = item[2];
+      const path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", [
+        "M", (cx - r).toFixed(2), cy.toFixed(2),
+        "C", (cx - r * .3).toFixed(2), (cy - r * 1.2).toFixed(2),
+        (cx + r * 1.2).toFixed(2), (cy - r * .8).toFixed(2),
+        (cx + r * .8).toFixed(2), cy.toFixed(2),
+        "C", (cx + r * .4).toFixed(2), (cy + r * .8).toFixed(2),
+        (cx - r * .6).toFixed(2), (cy + r * .45).toFixed(2),
+        (cx - r * .2).toFixed(2), (cy - r * .08).toFixed(2)
+      ].join(" "));
+      path.style.setProperty("--speed", (11.5 + idx * .7).toFixed(2) + "s");
+      path.style.setProperty("--delay", (-idx * 1.25).toFixed(2) + "s");
+      svg.appendChild(path);
+    });
+    stage.appendChild(svg);
+  }
   if (payload.stage.cloud) {
     L.DomUtil.create("div", "ww-motion-cloud-shelf", stage);
   }
   if (payload.stage.rain) {
-    L.DomUtil.create("div", "ww-motion-rain-curtain", stage);
+    L.DomUtil.create("div", "ww-precip-radar", stage);
   }
   if (payload.stage.wind) {
-    for (let idx = 0; idx < 5; idx += 1) {
-      const band = L.DomUtil.create("div", "ww-motion-wind-band", stage);
-      band.style.top = (18 + idx * 13) + "%";
-      band.style.setProperty("--angle", payload.stage.angle + "deg");
-      band.style.setProperty("--delay", (-idx * 1.1) + "s");
-      band.style.setProperty("--speed", (8.4 - payload.stage.wind_strength * 1.7 + idx * .32) + "s");
-      band.innerHTML = "<i></i>";
-    }
+    addWindStreamfield();
   }
   function register(el, item) {
     layer.appendChild(el);
@@ -1175,24 +1208,6 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     el.style.height = Math.round(item.size * .56) + "px";
     el.style.setProperty("--dx", item.dx + "px");
     el.style.setProperty("--dy", item.dy + "px");
-    register(el, item);
-  });
-  payload.wind.forEach(function(item) {
-    const el = document.createElement("div");
-    el.className = "ww-motion-wind";
-    el.innerHTML = "<i></i>";
-    setBase(el, item);
-    el.style.setProperty("--angle", item.angle + "deg");
-    el.style.setProperty("--length", item.length + "px");
-    el.style.setProperty("--travel", item.travel + "px");
-    register(el, item);
-  });
-  payload.rain.forEach(function(item) {
-    const el = document.createElement("div");
-    el.className = "ww-motion-rain";
-    el.innerHTML = "<span></span><span></span><span></span><span></span><span></span>";
-    setBase(el, item);
-    el.style.setProperty("--angle", item.angle + "deg");
     register(el, item);
   });
   function renderMotion() {
@@ -1220,7 +1235,7 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
 
     if layers.get("cloud_veil"):
         group = folium.FeatureGroup(name="Cloud and fog veil", show=True)
-        cloud_opacity = 0.10 + signal["cloud"] * 0.18
+        cloud_opacity = 0.07 + signal["cloud"] * 0.12
         for idx in range(6):
             center_lat = min_lat + lat_span * (0.12 + ((idx * 0.19 + seed * 0.07) % 0.76))
             center_lon = min_lon + lon_span * (0.10 + ((idx * 0.23 + seed * 0.05) % 0.78))
@@ -1230,26 +1245,27 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
 
     if layers.get("precipitation"):
         group = folium.FeatureGroup(name="Precipitation field", show=True)
-        rain_opacity = 0.08 + signal["precip_intensity"] * 0.25
+        rain_opacity = 0.06 + signal["precip_intensity"] * 0.18
+        radar_colors = ("#4b8cff", "#6977f2", "#a06fe0")
         for idx in range(7):
             center_lat = min_lat + lat_span * (0.09 + ((idx * 0.17 + seed * 0.11) % 0.82))
             center_lon = min_lon + lon_span * (0.08 + ((idx * 0.29 + seed * 0.09) % 0.82))
             points = blob_points(center_lat, center_lon, lat_span * (0.075 + signal["precip_intensity"] * 0.055), lon_span * (0.09 + signal["precip_intensity"] * 0.06), seed + idx * 1.7)
-            folium.Polygon(points, color="#6aaed6", weight=1, opacity=rain_opacity, fill=True, fill_color="#5ca6d7", fill_opacity=rain_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
-        for idx in range(9):
+            folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=rain_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
+        for idx in range(6):
             start_lat = min_lat + lat_span * (0.06 + idx * 0.11)
             start_lon = min_lon + lon_span * (0.08 + ((idx * 0.13 + seed) % 0.78))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#4f9ac5", weight=2.4, opacity=0.32 + signal["precip_intensity"] * 0.25, dash_array="10 16", tooltip="Rain direction").add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#9ed6f1", weight=0.8, opacity=0.10 + signal["precip_intensity"] * 0.08, dash_array="3 16", tooltip="Rain direction").add_to(group)
         group.add_to(m)
 
     if layers.get("wind_flow"):
         group = folium.FeatureGroup(name="Wind streamlines", show=True)
-        wind_opacity = 0.30 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.36
-        for idx in range(12):
-            start_lat = min_lat + lat_span * (0.05 + idx * 0.083)
+        wind_opacity = 0.10 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.16
+        for idx in range(14):
+            start_lat = min_lat + lat_span * (0.05 + idx * 0.068)
             start_lon = min_lon + lon_span * (0.02 + ((idx * 0.19 + seed * 0.3) % 0.96))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#d7e7eb", weight=4.4, opacity=wind_opacity, tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg").add_to(group)
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#2f6f8d", weight=1.3, opacity=wind_opacity * 0.85).add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#edfaff", weight=1.1, opacity=wind_opacity, dash_array="5 18", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg").add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#58aeca", weight=0.45, opacity=wind_opacity * 0.55, dash_array="5 18").add_to(group)
         group.add_to(m)
 
     if layers.get("moisture_flow"):
