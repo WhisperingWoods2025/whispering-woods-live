@@ -15,6 +15,7 @@ import folium
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
+from branca.element import Element
 
 try:
     import ee  # type: ignore
@@ -102,6 +103,9 @@ LAYER_SECTIONS = [
     ),
 ]
 LAYER_META = [item for _, items in LAYER_SECTIONS for item in items]
+WORKSPACE_MODES = ["Map", "3D View", "Predictions"]
+WORKSPACE_QUERY_SLUGS = {"Map": "map", "3D View": "3d-view", "Predictions": "predictions"}
+WORKSPACE_MODES_BY_SLUG = {slug: mode for mode, slug in WORKSPACE_QUERY_SLUGS.items()}
 
 VIEW_PRESETS = {
     "Weather canvas": {
@@ -223,7 +227,8 @@ def inject_theme_css() -> None:
 .ww-brand { display:flex; align-items:center; gap:.68rem; color:var(--ww-ink); font-weight:790; font-size:1rem; }
 .ww-mark { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:#ffffff; background:#16251c; font-weight:850; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
 .ww-nav { display:flex; align-items:center; gap:.32rem; padding:.22rem; border:1px solid var(--ww-line); border-radius:8px; background:rgba(246,245,239,.72); }
-.ww-nav span { padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; }
+.ww-nav a { padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; text-decoration:none; transition:background .16s ease, color .16s ease, box-shadow .16s ease; }
+.ww-nav a:hover { color:var(--ww-ink); background:rgba(255,255,255,.72); }
 .ww-nav .active { color:#ffffff; background:#17251c; box-shadow:0 8px 24px rgba(22,37,28,.18); }
 .ww-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; margin:.1rem 0 .85rem; }
 .ww-kicker, .ww-map-label, .ww-plan-label, .ww-section-label { color:var(--ww-green); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
@@ -236,6 +241,13 @@ def inject_theme_css() -> None:
 .ww-panel-title { color:var(--ww-ink); font-size:1.2rem; font-weight:840; margin:0 0 .18rem; }
 .ww-panel-copy { color:var(--ww-muted); font-size:.86rem; line-height:1.42; margin:0 0 .7rem; }
 .ww-control-band { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.72rem .78rem .45rem; margin-bottom:.62rem; background:rgba(247,245,238,.80); }
+.ww-time-card { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem .62rem; margin:.48rem 0 .56rem; }
+.ww-time-card span { color:var(--ww-muted); display:block; font-size:.7rem; font-weight:780; text-transform:uppercase; letter-spacing:.04em; }
+.ww-time-card strong { color:var(--ww-ink); display:block; font-size:.96rem; line-height:1.24; margin:.2rem 0 .5rem; }
+.ww-time-rail { height:7px; border-radius:999px; background:rgba(26,46,35,.10); overflow:hidden; }
+.ww-time-rail i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#3478a9,#3ca7a6,#e3a72f); }
+.ww-time-meta { display:flex; justify-content:space-between; gap:.5rem; margin-top:.4rem; color:#6a766d; font-size:.72rem; font-weight:720; }
+.ww-time-meta em { font-style:normal; }
 .ww-map-head { display:flex; align-items:center; justify-content:space-between; gap:.85rem; margin:.14rem 0 .5rem; }
 .ww-map-title { color:var(--ww-ink); font-size:1.08rem; font-weight:800; }
 .ww-legend { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.36rem; }
@@ -264,7 +276,10 @@ def inject_theme_css() -> None:
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
 [data-testid="stIFrame"] { border:1px solid rgba(26,46,35,.14); border-radius:8px; overflow:hidden; box-shadow:0 22px 70px rgba(35,53,42,.16); }
-[data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; }
+[data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; opacity:1!important; }
+[data-testid="stRadio"] label p, [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label span { color:var(--ww-ink)!important; opacity:1!important; }
+[data-testid="stNumberInput"] input { border-radius:8px!important; background:#ffffff!important; color:var(--ww-ink)!important; font-weight:740!important; }
+[data-testid="stButton"] button { border-radius:8px!important; font-weight:780!important; }
 [data-testid="stAlert"], [data-testid="stDataFrame"] { border-radius:8px; overflow:hidden; }
 .stTabs [data-baseweb="tab-list"] { gap:.35rem; }
 .stTabs [data-baseweb="tab"] { border-radius:8px; padding:.35rem .62rem; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.08); }
@@ -965,6 +980,152 @@ def flowline_points(start_lat: float, start_lon: float, angle_deg: float, lat_sp
     return points
 
 
+def screen_motion_vector(angle_deg: float, distance_px: float) -> tuple[float, float]:
+    angle = math.radians(angle_deg)
+    return math.sin(angle) * distance_px, -math.cos(angle) * distance_px
+
+
+def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
+    active_motion = any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow"))
+    if not active_motion:
+        return
+
+    stats = get_bounds_stats(bounds)
+    min_lat, min_lon = stats["min_lat"], stats["min_lon"]
+    lat_span, lon_span = stats["lat_span"], stats["lon_span"]
+    seed = (int(signal["wind_direction"]) + int(float(signal["precipitation"] or 0) * 10)) / 57.0
+    wind = clamp(float(signal["wind"] or 0) / 9, 0, 1)
+    cloud_dx, cloud_dy = screen_motion_vector(float(signal["wind_direction"]), 26 + wind * 40)
+    css_angle = 90 - float(signal["wind_direction"])
+
+    payload = {"clouds": [], "wind": [], "rain": []}
+    if layers.get("cloud_veil"):
+        for idx in range(6):
+            payload["clouds"].append({
+                "lat": min_lat + lat_span * (0.14 + ((idx * 0.17 + seed * 0.07) % 0.72)),
+                "lon": min_lon + lon_span * (0.12 + ((idx * 0.21 + seed * 0.05) % 0.76)),
+                "size": round(96 + idx % 3 * 24 + signal["cloud"] * 36),
+                "opacity": round(0.22 + signal["cloud"] * 0.22, 2),
+                "dx": round(cloud_dx * (0.75 + idx * 0.08), 1),
+                "dy": round(cloud_dy * (0.75 + idx * 0.08), 1),
+                "delay": round(idx * -2.8, 1),
+                "duration": round(18 - wind * 5 + idx * 0.8, 1),
+            })
+    if layers.get("wind_flow"):
+        for idx in range(14):
+            payload["wind"].append({
+                "lat": min_lat + lat_span * (0.08 + idx * 0.065),
+                "lon": min_lon + lon_span * (0.06 + ((idx * 0.18 + seed * 0.31) % 0.88)),
+                "angle": round(css_angle, 1),
+                "length": round(46 + wind * 38 + (idx % 3) * 9),
+                "opacity": round(0.28 + wind * 0.42, 2),
+                "delay": round(idx * -0.35, 2),
+                "duration": round(2.8 - wind * 1.1, 2),
+            })
+    if layers.get("precipitation") and signal["precip_intensity"] > 0.03:
+        for idx in range(18):
+            payload["rain"].append({
+                "lat": min_lat + lat_span * (0.07 + ((idx * 0.12 + seed * 0.13) % 0.84)),
+                "lon": min_lon + lon_span * (0.07 + ((idx * 0.27 + seed * 0.09) % 0.84)),
+                "angle": round(css_angle + 18, 1),
+                "opacity": round(0.20 + signal["precip_intensity"] * 0.50, 2),
+                "delay": round(idx * -0.18, 2),
+                "duration": round(1.25 - signal["precip_intensity"] * 0.35, 2),
+            })
+
+    style = """
+<style>
+.ww-motion-layer { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:650; overflow:hidden; }
+.ww-motion-layer * { pointer-events:none; }
+.ww-motion-cloud { position:absolute; border-radius:999px; background:radial-gradient(circle at 35% 45%, rgba(255,255,255,.96), rgba(226,235,231,.68) 48%, rgba(226,235,231,0) 72%); filter:blur(1.2px); mix-blend-mode:screen; animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-wind { position:absolute; width:var(--length); height:18px; transform:translate(-50%,-50%) rotate(var(--angle)); opacity:var(--opacity); }
+.ww-motion-wind i { position:absolute; left:0; top:8px; width:100%; height:2px; border-radius:99px; background:linear-gradient(90deg, rgba(47,111,141,0), rgba(47,111,141,.86)); animation:ww-wind-flow var(--duration) linear infinite; animation-delay:var(--delay); }
+.ww-motion-wind i:after { content:""; position:absolute; right:-1px; top:-4px; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:8px solid rgba(47,111,141,.86); }
+.ww-motion-rain { position:absolute; width:46px; height:62px; transform:translate(-50%,-50%) rotate(var(--angle)); opacity:var(--opacity); }
+.ww-motion-rain span { position:absolute; top:0; width:2px; height:22px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.82)); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .16s); }
+.ww-motion-rain span:nth-child(1) { left:10px; --i:0; }
+.ww-motion-rain span:nth-child(2) { left:22px; --i:1; }
+.ww-motion-rain span:nth-child(3) { left:34px; --i:2; }
+@keyframes ww-cloud-drift {
+  from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
+  to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.06); }
+}
+@keyframes ww-wind-flow {
+  from { transform:translateX(-22px); opacity:.05; }
+  35% { opacity:1; }
+  to { transform:translateX(26px); opacity:0; }
+}
+@keyframes ww-rain-run {
+  from { transform:translateY(-24px); opacity:0; }
+  25% { opacity:1; }
+  to { transform:translateY(44px); opacity:0; }
+}
+</style>
+"""
+    script = f"""
+<script>
+(function() {{
+  const map = {m.get_name()};
+  const payload = {json.dumps(payload)};
+  const container = map.getContainer();
+  const existing = container.querySelector(".ww-motion-layer");
+  if (existing) existing.remove();
+  const pane = map.getPane("overlayPane");
+  const layer = L.DomUtil.create("div", "ww-motion-layer", pane);
+  const nodes = [];
+  function register(el, item) {{
+    layer.appendChild(el);
+    nodes.push({{el: el, lat: item.lat, lon: item.lon}});
+  }}
+  function setBase(el, item) {{
+    el.style.setProperty("--opacity", item.opacity);
+    el.style.setProperty("--delay", item.delay + "s");
+    el.style.setProperty("--duration", item.duration + "s");
+  }}
+  payload.clouds.forEach(function(item) {{
+    const el = document.createElement("div");
+    el.className = "ww-motion-cloud";
+    setBase(el, item);
+    el.style.width = item.size + "px";
+    el.style.height = Math.round(item.size * .56) + "px";
+    el.style.setProperty("--dx", item.dx + "px");
+    el.style.setProperty("--dy", item.dy + "px");
+    register(el, item);
+  }});
+  payload.wind.forEach(function(item) {{
+    const el = document.createElement("div");
+    el.className = "ww-motion-wind";
+    el.innerHTML = "<i></i>";
+    setBase(el, item);
+    el.style.setProperty("--angle", item.angle + "deg");
+    el.style.setProperty("--length", item.length + "px");
+    register(el, item);
+  }});
+  payload.rain.forEach(function(item) {{
+    const el = document.createElement("div");
+    el.className = "ww-motion-rain";
+    el.innerHTML = "<span></span><span></span><span></span>";
+    setBase(el, item);
+    el.style.setProperty("--angle", item.angle + "deg");
+    register(el, item);
+  }});
+  function renderMotion() {{
+    nodes.forEach(function(node) {{
+      const point = map.latLngToLayerPoint([node.lat, node.lon]);
+      node.el.style.left = point.x + "px";
+      node.el.style.top = point.y + "px";
+    }});
+  }}
+  map.on("zoom viewreset move", renderMotion);
+  setTimeout(renderMotion, 80);
+}})();
+</script>
+"""
+    root = m.get_root()
+    root.header.add_child(Element(style))
+    root.script.add_child(Element(script))
+
+
 def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
     stats = get_bounds_stats(bounds)
     min_lat, max_lat, min_lon, max_lon = stats["min_lat"], stats["max_lat"], stats["min_lon"], stats["max_lon"]
@@ -1027,6 +1188,8 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
             points = blob_points(center_lat, center_lon, lat_span * (0.075 + idx * 0.008), lon_span * (0.10 + idx * 0.01), seed + idx * 2.1)
             folium.Polygon(points, color=color, weight=1, opacity=stress_opacity, fill=True, fill_color=color, fill_opacity=stress_opacity, tooltip="Prototype canopy stress veil").add_to(group)
         group.add_to(m)
+
+    add_weather_motion_overlay(m, bounds, layers, signal)
 
 
 def add_prediction_surface_overlay(m: folium.Map, prediction_df: pd.DataFrame) -> None:
@@ -1170,14 +1333,93 @@ def apply_view_preset(view_mode: str) -> None:
         st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
 
 
+def get_query_value(name: str) -> Optional[str]:
+    value = st.query_params.get(name)
+    if isinstance(value, list):
+        value = value[0] if value else None
+    return str(value) if value else None
+
+
+def sync_workspace_mode_from_query() -> None:
+    workspace_slug = get_query_value("workspace")
+    query_mode = WORKSPACE_MODES_BY_SLUG.get(workspace_slug or "")
+    if query_mode and st.session_state.get("workspace_query_slug") != workspace_slug:
+        st.session_state["workspace_mode"] = query_mode
+        st.session_state["workspace_query_slug"] = workspace_slug
+    elif "workspace_mode" not in st.session_state:
+        st.session_state["workspace_mode"] = "Map"
+
+
+def sync_workspace_query(app_mode: str) -> None:
+    workspace_slug = WORKSPACE_QUERY_SLUGS[app_mode]
+    if get_query_value("workspace") != workspace_slug:
+        st.query_params["workspace"] = workspace_slug
+    st.session_state["workspace_query_slug"] = workspace_slug
+
+
+def get_period_step_key(granularity: str) -> str:
+    return "timeline_day" if granularity == "Daily" else "timeline_week"
+
+
+def get_period_step_bounds(year: int, granularity: str) -> tuple[int, int]:
+    if granularity == "Daily":
+        return 1, 366 if calendar.isleap(year) else 365
+    if granularity == "Weekly":
+        return 1, 52
+    return 1, 1
+
+
+def get_default_period_step(year: int, granularity: str) -> int:
+    if granularity == "Daily":
+        return min(196, get_period_step_bounds(year, granularity)[1])
+    if granularity == "Weekly":
+        return 28
+    return 1
+
+
+def clamp_session_step(key: str, year: int, granularity: str) -> None:
+    min_step, max_step = get_period_step_bounds(year, granularity)
+    current = int(st.session_state.get(key, get_default_period_step(year, granularity)))
+    st.session_state[key] = min(max(current, min_step), max_step)
+
+
+def advance_period_step(key: str, year: int, granularity: str, delta: int) -> None:
+    clamp_session_step(key, year, granularity)
+    min_step, max_step = get_period_step_bounds(year, granularity)
+    st.session_state[key] = min(max(int(st.session_state[key]) + delta, min_step), max_step)
+
+
+def render_timeline_status(year: int, granularity: str, step_index: Optional[int]) -> None:
+    period = build_period_context(year, granularity, step_index)
+    if granularity == "Annual":
+        progress = ((year - 2000) / 26) * 100
+        left_label, right_label = "2000", "2026"
+    else:
+        min_step, max_step = get_period_step_bounds(year, granularity)
+        progress = ((int(step_index or min_step) - min_step) / max(max_step - min_step, 1)) * 100
+        left_label, right_label = str(min_step), str(max_step)
+    st.markdown(f"""
+<div class="ww-time-card">
+  <span>Selected time</span>
+  <strong>{period['label']}</strong>
+  <div class="ww-time-rail"><i style="width:{progress:.1f}%;"></i></div>
+  <div class="ww-time-meta"><em>{left_label}</em><em>{granularity}</em><em>{right_label}</em></div>
+</div>
+    """, unsafe_allow_html=True)
+
+
 def render_topbar(app_mode: str) -> None:
     def nav_class(label: str) -> str:
         return "active" if label == app_mode else ""
 
+    nav_items = "".join(
+        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{label}</a>'
+        for label in WORKSPACE_MODES
+    )
     st.markdown(f"""
 <div class="ww-topbar">
   <div class="ww-brand"><div class="ww-mark">W</div><span>Whispering Woods</span></div>
-  <div class="ww-nav"><span class="{nav_class('Map')}">Map</span><span class="{nav_class('3D View')}">3D View</span><span class="{nav_class('Predictions')}">Predictions</span></div>
+  <div class="ww-nav">{nav_items}</div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -1208,8 +1450,10 @@ def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
     st.markdown("<div class='ww-panel-copy'>Shape the forest canvas by time, lens, and evidence layer.</div>", unsafe_allow_html=True)
 
+    sync_workspace_mode_from_query()
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
-    app_mode = st.radio("Workspace", ["Map", "3D View", "Predictions"], index=0, horizontal=True, label_visibility="collapsed")
+    app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode")
+    sync_workspace_query(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
@@ -1219,15 +1463,24 @@ def render_layer_panel() -> tuple:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
-    year = st.slider("Year", min_value=2000, max_value=2026, value=2024)
-    granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True)
+    year = int(st.number_input("Year", min_value=2000, max_value=2026, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
+    granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
     step_index: Optional[int] = None
-    if granularity == "Weekly":
-        step_index = st.slider("Week", min_value=1, max_value=52, value=28)
-    elif granularity == "Daily":
-        max_day = 366 if calendar.isleap(year) else 365
-        step_index = st.slider("Day of year", min_value=1, max_value=max_day, value=min(196, max_day))
-    projection_year = st.slider("Projection year", min_value=2026, max_value=2040, value=2030)
+    if granularity != "Annual":
+        step_key = get_period_step_key(granularity)
+        clamp_session_step(step_key, year, granularity)
+        previous_col, step_col, next_col = st.columns([0.22, 0.56, 0.22])
+        with previous_col:
+            if st.button("Prev", key=f"{step_key}_prev", use_container_width=True):
+                advance_period_step(step_key, year, granularity, -1)
+        with next_col:
+            if st.button("Next", key=f"{step_key}_next", use_container_width=True):
+                advance_period_step(step_key, year, granularity, 1)
+        min_step, max_step = get_period_step_bounds(year, granularity)
+        with step_col:
+            step_index = int(st.number_input("Week" if granularity == "Weekly" else "Day of year", min_value=min_step, max_value=max_step, step=1, key=step_key))
+    render_timeline_status(year, granularity, step_index)
+    projection_year = int(st.number_input("Projection year", min_value=2026, max_value=2040, value=int(st.session_state.get("projection_year", 2030)), step=1, key="projection_year"))
     risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1)
     basemap = st.selectbox("Map style", ["Light", "Satellite", "Terrain"], index=0)
     height_mode = "Risk score"
@@ -1483,7 +1736,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
     render_map_selection(map_state)
-    captions = ["Daily and weekly weather-canvas overlays are rendered in-app from public DWD observations when available; annual Earth Engine layers stay source-native and read-only."]
+    captions = ["Daily and weekly weather-canvas overlays are rendered in-app from public DWD observations when available; animated wind, cloud, and rain cues are visual motion guides for the selected period. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
     captions.extend(notes)
