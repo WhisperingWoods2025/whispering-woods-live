@@ -40,6 +40,12 @@ BERCHTESGADEN_WDPA_ID = 668
 
 DWD_RECENT_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent"
 DWD_HISTORICAL_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/historical"
+DWD_HOURLY_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly"
+DWD_HOURLY_PRODUCTS = {
+    "precipitation": {"path": "precipitation/recent", "prefix": "RR", "value_fields": ("R1",)},
+    "wind": {"path": "wind/recent", "prefix": "FF", "value_fields": ("F", "D")},
+    "air_temperature": {"path": "air_temperature/recent", "prefix": "TU", "value_fields": ("TT_TU", "RF_TU")},
+}
 
 DEFAULT_RGB_BANDS = ["A01", "A16", "A09"]
 AOI_COLOR = "#E3A72F"
@@ -514,6 +520,18 @@ def format_dwd_date(raw_date: str) -> str:
     return parsed.isoformat() if parsed else raw_date or "n/a"
 
 
+def parse_dwd_hour(raw_date: str) -> Optional[datetime]:
+    try:
+        return datetime.strptime(raw_date, "%Y%m%d%H")
+    except ValueError:
+        return None
+
+
+def format_dwd_hour(raw_date: str) -> str:
+    parsed = parse_dwd_hour(raw_date)
+    return parsed.strftime("%Y-%m-%d %H:00") if parsed else raw_date or "n/a"
+
+
 def build_period_context(year: int, granularity: str, step_index: Optional[int]) -> dict:
     max_day = 366 if calendar.isleap(year) else 365
     if granularity == "Daily":
@@ -555,6 +573,116 @@ def fetch_dwd_rows(station_id: str, archive_kind: str) -> list[dict[str, str]]:
         if clean_row.get("MESS_DATUM"):
             rows.append(clean_row)
     return rows
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_dwd_hourly_rows(station_id: str, product_key: str) -> list[dict[str, str]]:
+    product = DWD_HOURLY_PRODUCTS[product_key]
+    archive_url = f"{DWD_HOURLY_BASE_URL}/{product['path']}/stundenwerte_{product['prefix']}_{station_id}_akt.zip"
+    with urllib.request.urlopen(archive_url, timeout=18) as response:
+        archive_data = response.read()
+    with zipfile.ZipFile(io.BytesIO(archive_data)) as archive:
+        product_names = [name for name in archive.namelist() if name.lower().split("/")[-1].startswith("produkt") and name.endswith(".txt")]
+        if not product_names:
+            raise ValueError(f"No DWD hourly product file found for {station_id} / {product_key}.")
+        with archive.open(product_names[0]) as product_file:
+            text = product_file.read().decode("latin1")
+    rows = []
+    for row in csv.DictReader(io.StringIO(text), delimiter=";"):
+        clean_row = {key.strip(): value.strip() for key, value in row.items() if key is not None and value is not None}
+        if clean_row.get("MESS_DATUM"):
+            rows.append(clean_row)
+    return rows
+
+
+def latest_hourly_row(rows: list[dict[str, str]], fields: tuple[str, ...]) -> Optional[dict[str, str]]:
+    dated_rows = [(parsed, row) for row in rows if (parsed := parse_dwd_hour(row.get("MESS_DATUM", ""))) is not None]
+    for _, row in sorted(dated_rows, key=lambda item: item[0], reverse=True):
+        if any(dwd_float(row, field) is not None for field in fields):
+            return row
+    return None
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_dwd_live_reading(station_id: str) -> Optional[dict]:
+    station = get_station(station_id)
+    reading = {
+        "station_id": station["id"],
+        "name": station["name"],
+        "state": station["state"],
+        "lat": station["lat"],
+        "lon": station["lon"],
+        "elevation": station["elevation"],
+        "distance_km": station["distance_km"],
+        "period": "Live hourly DWD",
+        "archive_kind": "live_hourly",
+        "days": 1,
+        "mean_temp": None,
+        "max_temp": None,
+        "min_temp": None,
+        "precipitation": None,
+        "humidity": None,
+        "wind": None,
+        "gust": None,
+        "wind_direction": None,
+        "live": True,
+        "date": "latest hourly",
+    }
+    observation_times = []
+    metric_count = 0
+
+    try:
+        temp_row = latest_hourly_row(fetch_dwd_hourly_rows(station_id, "air_temperature"), ("TT_TU", "RF_TU"))
+    except Exception:
+        temp_row = None
+    if temp_row is not None:
+        reading["mean_temp"] = dwd_float(temp_row, "TT_TU")
+        reading["humidity"] = dwd_float(temp_row, "RF_TU")
+        if parsed := parse_dwd_hour(temp_row.get("MESS_DATUM", "")):
+            observation_times.append(parsed)
+        metric_count += int(reading["mean_temp"] is not None or reading["humidity"] is not None)
+
+    try:
+        precip_row = latest_hourly_row(fetch_dwd_hourly_rows(station_id, "precipitation"), ("R1",))
+    except Exception:
+        precip_row = None
+    if precip_row is not None:
+        precip = dwd_float(precip_row, "R1")
+        reading["precipitation"] = max(0.0, precip) if precip is not None else None
+        if parsed := parse_dwd_hour(precip_row.get("MESS_DATUM", "")):
+            observation_times.append(parsed)
+        metric_count += int(reading["precipitation"] is not None)
+
+    try:
+        wind_row = latest_hourly_row(fetch_dwd_hourly_rows(station_id, "wind"), ("F", "D"))
+    except Exception:
+        wind_row = None
+    if wind_row is not None:
+        reading["wind"] = dwd_float(wind_row, "F")
+        reading["wind_direction"] = dwd_float(wind_row, "D")
+        reading["gust"] = round(float(reading["wind"]) * 1.8, 1) if reading["wind"] is not None else None
+        if parsed := parse_dwd_hour(wind_row.get("MESS_DATUM", "")):
+            observation_times.append(parsed)
+        metric_count += int(reading["wind"] is not None or reading["wind_direction"] is not None)
+
+    if metric_count == 0:
+        return None
+    if observation_times:
+        reading["date"] = max(observation_times).strftime("%Y-%m-%d %H:00")
+    return reading
+
+
+def get_dwd_live_readings() -> tuple[list[dict], int]:
+    readings = []
+    unavailable = 0
+    for station in DWD_STATIONS:
+        reading = get_dwd_live_reading(station["id"])
+        if reading is None:
+            unavailable += 1
+        else:
+            readings.append(reading)
+    readings.sort(key=lambda item: item["distance_km"])
+    return readings, unavailable
 
 
 def get_station(station_id: str) -> dict:
@@ -697,8 +825,31 @@ def average(values: list[float]) -> Optional[float]:
     return round(sum(values) / len(values), 1) if values else None
 
 
+def precipitation_intensity(value: Optional[float], granularity: str, is_live: bool) -> float:
+    if value is None:
+        return 0.0
+    precipitation = max(0.0, float(value))
+    if precipitation <= 0.02:
+        return 0.0
+    if is_live:
+        return clamp((precipitation / 8.0) ** 0.55, 0.04, 1.0)
+    reference = {"Daily": 28.0, "Weekly": 95.0, "Annual": 1800.0}[granularity]
+    return clamp((precipitation / reference) ** 0.65, 0.0, 1.0)
+
+
+def circular_mean_degrees(values: list[float]) -> Optional[float]:
+    if not values:
+        return None
+    sin_sum = sum(math.sin(math.radians(value)) for value in values)
+    cos_sum = sum(math.cos(math.radians(value)) for value in values)
+    if sin_sum == 0 and cos_sum == 0:
+        return None
+    return round(math.degrees(math.atan2(sin_sum, cos_sum)) % 360, 0)
+
+
 def build_time_signal(year: int, granularity: str, step_index: Optional[int], readings: list[dict]) -> dict:
     period = build_period_context(year, granularity, step_index)
+    is_live = any(item.get("live") for item in readings)
     day_of_year = period["target_date"].timetuple().tm_yday
     seasonal_wave = math.sin((day_of_year - 80) / 365 * math.tau)
     fallback_temp = 5.6 + 9.4 * seasonal_wave + (year - 2000) * 0.035
@@ -711,20 +862,25 @@ def build_time_signal(year: int, granularity: str, step_index: Optional[int], re
     humidity = [float(item["humidity"]) for item in readings if item.get("humidity") is not None]
     wind = [float(item["wind"]) for item in readings if item.get("wind") is not None]
     gust = [float(item["gust"]) for item in readings if item.get("gust") is not None]
+    wind_directions = [float(item["wind_direction"]) for item in readings if item.get("wind_direction") is not None]
 
     mean_temp = average(temps) if temps else round(fallback_temp, 1)
-    precipitation = average(precip) if precip else round(fallback_precip, 1)
+    if is_live:
+        precipitation = round(max(precip), 1) if precip else 0.0
+    else:
+        precipitation = average(precip) if precip else round(fallback_precip, 1)
     mean_humidity = average(humidity) if humidity else round(fallback_humidity, 0)
     mean_wind = average(wind) if wind else round(fallback_wind, 1)
     max_gust = max(gust) if gust else round(mean_wind * 1.9, 1)
 
-    precip_reference = {"Daily": 28.0, "Weekly": 95.0, "Annual": 1800.0}[granularity]
-    precip_intensity = clamp(float(precipitation or 0) / precip_reference, 0, 1)
+    precip_intensity = precipitation_intensity(precipitation, granularity, is_live)
     humidity_intensity = clamp(float(mean_humidity or 0) / 100, 0, 1)
     moisture = clamp(0.42 + humidity_intensity * 0.34 + precip_intensity * 0.26 - max(0, float(mean_temp or 0) - 18) * 0.012, 0, 1)
     cloud = clamp(0.22 + humidity_intensity * 0.44 + precip_intensity * 0.52, 0, 1)
     stress = clamp((float(mean_temp or 0) - 12) / 16 + (1 - moisture) * 0.52 + (year - 2000) * 0.006, 0, 1)
-    wind_direction = (205 + math.sin(day_of_year / 365 * math.tau) * 55 + float(mean_wind or 0) * 7) % 360
+    wind_direction = circular_mean_degrees(wind_directions)
+    if wind_direction is None:
+        wind_direction = (205 + math.sin(day_of_year / 365 * math.tau) * 55 + float(mean_wind or 0) * 7) % 360
     return {
         "period_label": period["label"],
         "granularity": granularity,
@@ -738,7 +894,8 @@ def build_time_signal(year: int, granularity: str, step_index: Optional[int], re
         "cloud": cloud,
         "stress": stress,
         "wind_direction": round(wind_direction, 0),
-        "source": "DWD period readings" if readings else "seasonal fallback",
+        "live": is_live,
+        "source": "DWD live hourly observations" if is_live else ("DWD period readings" if readings else "seasonal fallback"),
     }
 
 
@@ -1017,7 +1174,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
         "stage": {
             "cloud": bool(layers.get("cloud_veil")),
             "wind": bool(layers.get("wind_flow")),
-            "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.03),
+            "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.01),
             "angle": round(css_angle, 1),
             "wind_strength": round(wind, 2),
             "precip_intensity": round(signal["precip_intensity"], 2),
@@ -1133,7 +1290,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
   stage.style.setProperty("--wind-alpha", (0.38 + payload.stage.wind_strength * 0.20).toFixed(2));
-  stage.style.setProperty("--rain-alpha", (0.24 + payload.stage.precip_intensity * 0.34).toFixed(2));
+  stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.62).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
   function addWindStreamfield() {
@@ -1243,19 +1400,20 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
             folium.Polygon(points, color="#f4f7f2", weight=1, opacity=cloud_opacity * 0.45, fill=True, fill_color="#f4f7f2", fill_opacity=cloud_opacity, tooltip="Cloud / fog veil").add_to(group)
         group.add_to(m)
 
-    if layers.get("precipitation"):
+    if layers.get("precipitation") and signal["precip_intensity"] > 0.01:
         group = folium.FeatureGroup(name="Precipitation field", show=True)
-        rain_opacity = 0.06 + signal["precip_intensity"] * 0.18
+        rain_opacity = clamp(signal["precip_intensity"] * 0.22, 0.0, 0.24)
         radar_colors = ("#4b8cff", "#6977f2", "#a06fe0")
         for idx in range(7):
             center_lat = min_lat + lat_span * (0.09 + ((idx * 0.17 + seed * 0.11) % 0.82))
             center_lon = min_lon + lon_span * (0.08 + ((idx * 0.29 + seed * 0.09) % 0.82))
             points = blob_points(center_lat, center_lon, lat_span * (0.075 + signal["precip_intensity"] * 0.055), lon_span * (0.09 + signal["precip_intensity"] * 0.06), seed + idx * 1.7)
-            folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=rain_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
+            cell_opacity = rain_opacity * (1.0 - (idx % 4) * 0.14)
+            folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=cell_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
         for idx in range(6):
             start_lat = min_lat + lat_span * (0.06 + idx * 0.11)
             start_lon = min_lon + lon_span * (0.08 + ((idx * 0.13 + seed) % 0.78))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#9ed6f1", weight=0.8, opacity=0.10 + signal["precip_intensity"] * 0.08, dash_array="3 16", tooltip="Rain direction").add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#9ed6f1", weight=0.55, opacity=signal["precip_intensity"] * 0.12, dash_array="2 18", tooltip="Rain direction").add_to(group)
         group.add_to(m)
 
     if layers.get("wind_flow"):
@@ -1270,14 +1428,16 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
 
     if layers.get("moisture_flow"):
         group = folium.FeatureGroup(name="Moisture flow", show=True)
-        moisture_opacity = 0.12 + signal["moisture"] * 0.28
-        for idx in range(8):
-            start_lat = min_lat + lat_span * (0.18 + ((idx * 0.11 + seed * 0.05) % 0.64))
-            start_lon = min_lon + lon_span * (0.08 + idx * 0.105)
-            folium.PolyLine(flowline_points(start_lat, start_lon, 26 + idx * 3, lat_span * 0.52, lon_span * 0.46, seed + idx), color="#3ca7a6", weight=5.5, opacity=moisture_opacity, tooltip="Moisture flow").add_to(group)
+        moisture_opacity = 0.035 + signal["moisture"] * 0.13
+        for idx in range(10):
+            start_lat = min_lat + lat_span * (0.16 + ((idx * 0.085 + seed * 0.05) % 0.68))
+            start_lon = min_lon + lon_span * (0.06 + idx * 0.085)
+            points = flowline_points(start_lat, start_lon, 24 + idx * 3, lat_span * 0.52, lon_span * 0.46, seed + idx)
+            folium.PolyLine(points, color="#a4e0dc", weight=1.35, opacity=moisture_opacity, dash_array="4 19", tooltip="Moisture flow").add_to(group)
+            folium.PolyLine(points, color="#2f8f91", weight=0.35, opacity=moisture_opacity * 0.72, dash_array="4 19").add_to(group)
         for lake_lat, lake_lon in ((47.592, 12.989), (47.606, 12.849)):
             points = blob_points(lake_lat, lake_lon, lat_span * 0.085, lon_span * 0.07, seed)
-            folium.Polygon(points, color="#5ab2c0", weight=1, opacity=0.18, fill=True, fill_color="#61c0bf", fill_opacity=moisture_opacity * 0.9, tooltip="Water-buffer moisture zone").add_to(group)
+            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 1.25, tooltip="Water-buffer moisture zone").add_to(group)
         group.add_to(m)
 
     if layers.get("canopy_stress"):
@@ -1324,16 +1484,22 @@ def add_dwd_weather_markers(m: folium.Map, readings: list[dict], unavailable: in
     notes = [f"DWD has no selected-period records for {unavailable} nearby station(s)."] if unavailable else []
     group = folium.FeatureGroup(name="DWD station points", show=True)
     for reading in readings:
+        observation_label = reading.get("date", reading.get("period", "n/a"))
+        sample_label = "latest hourly record" if reading.get("live") else f"{reading['days']} observed day(s)"
+        wind_direction = reading.get("wind_direction")
+        wind_label = format_number(reading["wind"], " m/s")
+        if wind_direction is not None:
+            wind_label = f"{wind_label} / {wind_direction:.0f} deg"
         popup_html = f"""
         <div style='font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; min-width: 260px;'>
           <strong>{reading['name']}</strong><br>
           <span>DWD {reading['station_id']} | {reading['elevation']} m | {reading['distance_km']} km from park center</span><br>
-          <span>{reading['period']} | {reading['days']} observed day(s)</span>
+          <span>{reading['period']} | {observation_label} | {sample_label}</span>
           <table style='margin-top: 8px; width: 100%; font-size: 12px;'>
             <tr><td>Mean temp</td><td>{format_number(reading['mean_temp'], ' C')}</td></tr>
             <tr><td>Precipitation</td><td>{format_number(reading['precipitation'], ' mm')}</td></tr>
             <tr><td>Humidity</td><td>{format_number(reading['humidity'], '%', 0)}</td></tr>
-            <tr><td>Wind</td><td>{format_number(reading['wind'], ' m/s')}</td></tr>
+            <tr><td>Wind</td><td>{wind_label}</td></tr>
           </table>
         </div>
         """
@@ -1410,7 +1576,7 @@ def add_selected_layers(m: folium.Map, year: int, period: dict, signal: dict, ao
 
 def build_weather_table(readings: list[dict]) -> pd.DataFrame:
     return pd.DataFrame([
-        {"Station": r["name"], "Period": r["period"], "Days": r["days"], "Distance km": r["distance_km"], "Mean temp C": r["mean_temp"], "Precip mm": r["precipitation"], "Humidity %": r["humidity"], "Wind m/s": r["wind"], "Gust m/s": r["gust"]}
+        {"Station": r["name"], "Source": r["period"], "Observed": r.get("date", "n/a"), "Days": r["days"], "Distance km": r["distance_km"], "Mean temp C": r["mean_temp"], "Precip mm": r["precipitation"], "Humidity %": r["humidity"], "Wind m/s": r["wind"], "Wind deg": r.get("wind_direction"), "Gust m/s": r["gust"]}
         for r in readings
     ])
 
@@ -1567,6 +1733,7 @@ def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
     year = int(st.number_input("Year", min_value=2000, max_value=2026, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
     granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
+    weather_source = st.radio("Weather source", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
     step_index: Optional[int] = None
     if granularity != "Annual":
         step_key = get_period_step_key(granularity)
@@ -1600,7 +1767,7 @@ def render_layer_panel() -> tuple:
     with st.expander("Custom AOI", expanded=False):
         geojson_input: str = st.text_area("GeoJSON polygon", "", height=120, help="Leave blank to use Berchtesgaden National Park.")
     st.markdown("</div>", unsafe_allow_html=True)
-    return app_mode, year, projection_year, risk_scenario, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index
+    return app_mode, year, projection_year, risk_scenario, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source
 
 
 def render_sources_panel() -> None:
@@ -1608,7 +1775,7 @@ def render_sources_panel() -> None:
 <div class="ww-source-list">
   <div class="ww-source-item"><strong>Boundary</strong><br>WDPA Berchtesgaden National Park, with local fallback.</div>
   <div class="ww-source-item"><strong>Earth observation</strong><br>AlphaEarth, Hansen, JRC water, ESA WorldCover, MODIS, ERA5-Land, and SRTM.</div>
-  <div class="ww-source-item"><strong>Weather motion</strong><br>DWD daily observations plus no-cost in-app pattern rendering for rain, cloud, wind, and moisture.</div>
+  <div class="ww-source-item"><strong>Weather motion</strong><br>DWD live hourly observations by default, with selected-period daily records for timeline comparison. Rain, cloud, wind, and moisture patterns are rendered in-app.</div>
   <div class="ww-source-item"><strong>Prototype observations</strong><br>Soil probes are deterministic placeholders until a real sensor feed is supplied.</div>
 </div>
     """, unsafe_allow_html=True)
@@ -1735,7 +1902,7 @@ def render_map_heading(period_label: str, enabled_labels: list[tuple[str, str]],
 def build_insight_items(view_mode: str, year: int, period: dict, layers: dict[str, bool], signal: dict, notes: list[str]) -> list[tuple[str, str, str]]:
     items = [("Lens", view_mode, VIEW_PRESETS[view_mode]["copy"])]
     if any(layers.get(key) for key in ("precipitation", "wind_flow", "cloud_veil", "moisture_flow")):
-        items.append(("Weather canvas", period["label"], "Daily and weekly overlays are rendered in-app from DWD period readings when available, with a labelled seasonal fallback."))
+        items.append(("Weather canvas", signal["source"], "Weather overlays are rendered in-app from DWD station evidence when available, with a labelled seasonal fallback."))
     if layers.get("alphaearth"):
         items.append(("Landscape", "AlphaEarth active" if year in ALPHAEARTH_YEARS else "AlphaEarth hidden", "Annual embeddings currently cover 2017-2024." if year not in ALPHAEARTH_YEARS else "Embedding colors reveal landscape pattern differences inside the park."))
     if layers.get("prediction"):
@@ -1863,7 +2030,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
     render_map_selection(map_state)
-    captions = ["Daily and weekly weather-canvas overlays are rendered in-app from public DWD observations when available; animated wind, cloud, and rain cues are visual motion guides for the selected period. Annual Earth Engine layers stay source-native and read-only."]
+    captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
     captions.extend(notes)
@@ -1912,13 +2079,16 @@ def main() -> None:
 
     control_col, main_col = st.columns([0.95, 3.35], gap="large")
     with control_col:
-        app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index = render_layer_panel()
+        app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
         render_sources_panel()
         render_planned_layers()
 
     period = build_period_context(year, granularity, step_index)
     try:
-        readings, unavailable = get_dwd_readings_for_period(year, granularity, step_index)
+        if weather_source == "Live DWD hourly":
+            readings, unavailable = get_dwd_live_readings()
+        else:
+            readings, unavailable = get_dwd_readings_for_period(year, granularity, step_index)
     except Exception:
         readings, unavailable = [], len(DWD_STATIONS)
     signal = build_time_signal(year, granularity, step_index, readings)
