@@ -275,14 +275,14 @@ def inject_theme_css() -> None:
 .ww-plan-chip { color:#35513f; background:rgba(220,239,222,.54); border:1px dashed rgba(47,125,79,.24); border-radius:8px; padding:.46rem .5rem; font-size:.78rem; font-weight:730; }
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
-.ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(15,92,124,.26); border-radius:8px; min-height:74px; margin:.35rem 0 .65rem; background:linear-gradient(135deg, rgba(230,244,247,.94), rgba(255,255,255,.86)); box-shadow:0 16px 44px rgba(35,53,42,.08); }
-.ww-motion-proof:before { content:""; position:absolute; inset:-65% -30%; background:repeating-linear-gradient(115deg, rgba(15,92,124,0) 0 34px, rgba(15,92,124,.74) 34px 40px, rgba(255,255,255,.96) 40px 43px, rgba(15,92,124,0) 43px 82px); animation:ww-proof-sweep 1.15s linear infinite; opacity:.86; }
-.ww-motion-proof:after { content:""; position:absolute; left:-28%; top:10%; width:88%; height:64%; border-radius:999px; background:radial-gradient(ellipse at center, rgba(255,255,255,.96), rgba(170,198,205,.52) 54%, rgba(170,198,205,0) 72%); animation:ww-proof-cloud 3.6s ease-in-out infinite alternate; opacity:.80; }
-.ww-motion-proof-content { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.86rem .95rem; color:#103347; }
-.ww-motion-proof-content strong { display:block; font-size:.96rem; }
-.ww-motion-proof-content span { display:block; margin-top:.12rem; color:#46626d; font-size:.78rem; font-weight:720; }
-.ww-motion-proof-dot { width:14px; height:14px; border-radius:99px; background:#0f5c7c; box-shadow:0 0 0 0 rgba(15,92,124,.60); animation:ww-proof-pulse .9s ease-out infinite; flex:0 0 auto; }
-.ww-reduced-motion-note { display:none; position:relative; z-index:2; margin:.2rem .95rem .75rem; color:#7a3f10; font-size:.78rem; font-weight:760; }
+.ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(43,95,92,.13); border-radius:8px; min-height:50px; margin:.18rem 0 .56rem; background:linear-gradient(135deg, rgba(247,251,248,.94), rgba(235,245,245,.70)); box-shadow:0 10px 30px rgba(35,53,42,.06); }
+.ww-motion-proof:before { content:""; position:absolute; left:-24%; right:-24%; top:0; height:100%; background:radial-gradient(ellipse at 16% 38%, rgba(255,255,255,.76), rgba(197,217,219,.22) 34%, rgba(197,217,219,0) 58%), repeating-linear-gradient(104deg, rgba(44,116,139,0) 0 38px, rgba(44,116,139,.20) 38px 40px, rgba(255,255,255,.50) 40px 41px, rgba(44,116,139,0) 41px 82px); animation:ww-proof-sweep 7.8s linear infinite; opacity:.62; }
+.ww-motion-proof:after { content:""; position:absolute; left:-18%; bottom:10px; width:42%; height:10px; border-radius:999px; background:linear-gradient(90deg, rgba(15,92,124,0), rgba(15,92,124,.42), rgba(255,255,255,.62), rgba(15,92,124,0)); filter:blur(.2px); animation:ww-proof-cloud 6.2s ease-in-out infinite; opacity:.54; }
+.ww-motion-proof-content { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding:.58rem .72rem; color:#183b36; }
+.ww-motion-proof-content strong { display:block; font-size:.82rem; letter-spacing:.01em; }
+.ww-motion-proof-content span { display:block; margin-top:.08rem; color:#5b746d; font-size:.72rem; font-weight:680; }
+.ww-motion-proof-dot { width:8px; height:8px; border-radius:99px; background:#2f8c90; box-shadow:0 0 0 0 rgba(47,140,144,.34); animation:ww-proof-pulse 2.2s ease-out infinite; flex:0 0 auto; }
+.ww-reduced-motion-note { display:none; position:relative; z-index:2; margin:-.1rem .72rem .54rem; color:#7a3f10; font-size:.72rem; font-weight:720; }
 [data-testid="stIFrame"] { border:1px solid rgba(26,46,35,.14); border-radius:8px; overflow:hidden; box-shadow:0 22px 70px rgba(35,53,42,.16); }
 [data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; opacity:1!important; }
 [data-testid="stRadio"] label p, [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label span { color:var(--ww-ink)!important; opacity:1!important; }
@@ -291,9 +291,9 @@ def inject_theme_css() -> None:
 [data-testid="stAlert"], [data-testid="stDataFrame"] { border-radius:8px; overflow:hidden; }
 .stTabs [data-baseweb="tab-list"] { gap:.35rem; }
 .stTabs [data-baseweb="tab"] { border-radius:8px; padding:.35rem .62rem; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.08); }
-@keyframes ww-proof-sweep { from { transform:translate3d(-28%,0,0); } to { transform:translate3d(28%,0,0); } }
-@keyframes ww-proof-cloud { from { transform:translate3d(-10%,0,0) scale(.96); } to { transform:translate3d(92%,7%,0) scale(1.08); } }
-@keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(15,92,124,.65); transform:scale(.92); } 100% { box-shadow:0 0 0 16px rgba(15,92,124,0); transform:scale(1.08); } }
+@keyframes ww-proof-sweep { from { transform:translate3d(-12%,0,0); } to { transform:translate3d(12%,0,0); } }
+@keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
+@keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
 @media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
@@ -1028,11 +1028,11 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
                 "lat": min_lat + lat_span * (0.14 + ((idx * 0.17 + seed * 0.07) % 0.72)),
                 "lon": min_lon + lon_span * (0.12 + ((idx * 0.21 + seed * 0.05) % 0.76)),
                 "size": round(126 + idx % 3 * 36 + signal["cloud"] * 50),
-                "opacity": round(0.34 + signal["cloud"] * 0.34, 2),
+                "opacity": round(0.16 + signal["cloud"] * 0.20, 2),
                 "dx": round(cloud_dx * (0.75 + idx * 0.08), 1),
                 "dy": round(cloud_dy * (0.75 + idx * 0.08), 1),
-                "delay": round(idx * -2.8, 1),
-                "duration": round(10.5 - wind * 2.4 + idx * 0.6, 1),
+                "delay": round(idx * -4.2, 1),
+                "duration": round(18.0 - wind * 2.8 + idx * 0.8, 1),
             })
     if layers.get("wind_flow"):
         for idx in range(18):
@@ -1040,11 +1040,11 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
                 "lat": min_lat + lat_span * (0.06 + idx * 0.052),
                 "lon": min_lon + lon_span * (0.04 + ((idx * 0.17 + seed * 0.31) % 0.90)),
                 "angle": round(css_angle, 1),
-                "length": round(94 + wind * 86 + (idx % 3) * 16),
-                "opacity": round(0.52 + wind * 0.36, 2),
-                "delay": round(idx * -0.22, 2),
-                "duration": round(2.6 - wind * 0.75, 2),
-                "travel": round(46 + wind * 74 + (idx % 4) * 12),
+                "length": round(52 + wind * 52 + (idx % 3) * 10),
+                "opacity": round(0.22 + wind * 0.20, 2),
+                "delay": round(idx * -0.36, 2),
+                "duration": round(5.8 - wind * 1.0, 2),
+                "travel": round(34 + wind * 44 + (idx % 4) * 8),
             })
     if layers.get("precipitation") and signal["precip_intensity"] > 0.03:
         for idx in range(28):
@@ -1052,9 +1052,9 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
                 "lat": min_lat + lat_span * (0.07 + ((idx * 0.12 + seed * 0.13) % 0.84)),
                 "lon": min_lon + lon_span * (0.07 + ((idx * 0.27 + seed * 0.09) % 0.84)),
                 "angle": round(css_angle + 18, 1),
-                "opacity": round(0.38 + signal["precip_intensity"] * 0.46, 2),
-                "delay": round(idx * -0.11, 2),
-                "duration": round(0.95 - signal["precip_intensity"] * 0.22, 2),
+                "opacity": round(0.18 + signal["precip_intensity"] * 0.20, 2),
+                "delay": round(idx * -0.16, 2),
+                "duration": round(1.65 - signal["precip_intensity"] * 0.24, 2),
             })
 
     style = """
@@ -1062,23 +1062,23 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 .ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:1000; overflow:hidden; isolation:isolate; }
 .ww-motion-layer * { pointer-events:none; }
 .ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:normal; }
-.ww-motion-badge { position:absolute; right:14px; top:14px; z-index:3; display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; background:rgba(10,34,45,.86); color:#ffffff; border:1px solid rgba(255,255,255,.50); box-shadow:0 10px 26px rgba(0,0,0,.25); font:800 11px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.08em; text-transform:uppercase; animation:ww-motion-badge-pulse 1.05s ease-in-out infinite alternate; }
-.ww-motion-badge i { width:9px; height:9px; border-radius:99px; background:#74d6ff; box-shadow:0 0 0 0 rgba(116,214,255,.72); animation:ww-motion-dot 780ms ease-out infinite; }
-.ww-motion-cloud-shelf { position:absolute; left:-18%; top:4%; width:136%; height:46%; opacity:.54; filter:blur(.6px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.72), rgba(211,225,226,.50) 26%, rgba(211,225,226,0) 48%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.66), rgba(192,214,218,.46) 31%, rgba(192,214,218,0) 54%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.70), rgba(202,219,221,.42) 30%, rgba(202,219,221,0) 56%); animation:ww-viewport-cloud 8.5s ease-in-out infinite alternate; }
-.ww-motion-wind-band { position:absolute; left:-36%; width:172%; height:34px; transform:rotate(var(--angle)); opacity:.72; animation:ww-viewport-wind var(--speed) linear infinite; animation-delay:var(--delay); }
-.ww-motion-wind-band i { display:block; height:100%; background:linear-gradient(90deg, rgba(15,92,124,0) 0%, rgba(15,92,124,.10) 28%, rgba(15,92,124,.70) 46%, rgba(255,255,255,.90) 50%, rgba(15,92,124,.70) 54%, rgba(15,92,124,.08) 72%, rgba(15,92,124,0) 100%); filter:drop-shadow(0 0 9px rgba(42,124,154,.36)); }
-.ww-motion-rain-curtain { position:absolute; inset:-24%; opacity:.38; transform:rotate(var(--angle)); background:repeating-linear-gradient(90deg, rgba(82,154,198,0) 0 24px, rgba(82,154,198,.70) 24px 27px, rgba(255,255,255,.55) 27px 29px, rgba(82,154,198,0) 29px 46px); animation:ww-viewport-rain .68s linear infinite; filter:drop-shadow(0 0 8px rgba(52,120,169,.22)); }
-.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.16); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.92), rgba(209,224,224,.72) 46%, rgba(154,181,187,.28) 66%, rgba(154,181,187,0) 78%); filter:blur(.5px); box-shadow:0 16px 44px rgba(52,120,169,.16); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-wind { position:absolute; width:var(--length); height:24px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-wind-sweep var(--duration) ease-in-out infinite; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-wind i { position:absolute; left:0; top:11px; width:100%; height:3px; border-radius:99px; background:linear-gradient(90deg, rgba(22,92,119,0), rgba(22,92,119,.92) 54%, rgba(255,255,255,.86)); box-shadow:0 0 12px rgba(35,119,150,.35); animation:ww-wind-flow calc(var(--duration) * .82) linear infinite; animation-delay:var(--delay); }
-.ww-motion-wind i:after { content:""; position:absolute; right:-2px; top:-5px; width:0; height:0; border-top:7px solid transparent; border-bottom:7px solid transparent; border-left:11px solid rgba(22,92,119,.92); filter:drop-shadow(0 0 5px rgba(255,255,255,.72)); }
-.ww-motion-rain { position:absolute; width:70px; height:92px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-rain-cell calc(var(--duration) * 2.5) linear infinite; animation-delay:var(--delay); opacity:var(--opacity); }
-.ww-motion-rain span { position:absolute; top:0; width:3px; height:34px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.94) 54%, rgba(255,255,255,.78)); box-shadow:0 0 10px rgba(82,154,198,.32); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .09s); }
-.ww-motion-rain span:nth-child(1) { left:8px; --i:0; }
-.ww-motion-rain span:nth-child(2) { left:21px; --i:1; }
-.ww-motion-rain span:nth-child(3) { left:34px; --i:2; }
-.ww-motion-rain span:nth-child(4) { left:47px; --i:3; }
-.ww-motion-rain span:nth-child(5) { left:60px; --i:4; }
+.ww-motion-badge { position:absolute; right:12px; top:12px; z-index:3; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
+.ww-motion-badge i { width:6px; height:6px; border-radius:99px; background:#2f9ca2; box-shadow:0 0 0 0 rgba(47,156,162,.34); animation:ww-motion-dot 2.2s ease-out infinite; }
+.ww-motion-cloud-shelf { position:absolute; left:-22%; top:3%; width:144%; height:43%; opacity:.28; filter:blur(1.2px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.54), rgba(211,225,226,.26) 28%, rgba(211,225,226,0) 52%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.48), rgba(192,214,218,.24) 32%, rgba(192,214,218,0) 58%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.50), rgba(202,219,221,.22) 32%, rgba(202,219,221,0) 60%); animation:ww-viewport-cloud 21s ease-in-out infinite alternate; }
+.ww-motion-wind-band { position:absolute; left:-36%; width:172%; height:12px; transform:rotate(var(--angle)); opacity:.34; animation:ww-viewport-wind var(--speed) linear infinite; animation-delay:var(--delay); }
+.ww-motion-wind-band i { display:block; height:100%; background:linear-gradient(90deg, rgba(30,104,127,0) 0%, rgba(30,104,127,.05) 30%, rgba(30,104,127,.26) 48%, rgba(255,255,255,.52) 50%, rgba(30,104,127,.22) 53%, rgba(30,104,127,.04) 72%, rgba(30,104,127,0) 100%); filter:drop-shadow(0 0 4px rgba(42,124,154,.16)); }
+.ww-motion-rain-curtain { position:absolute; inset:-24%; opacity:.16; transform:rotate(var(--angle)); background:repeating-linear-gradient(90deg, rgba(82,154,198,0) 0 30px, rgba(82,154,198,.34) 30px 31px, rgba(255,255,255,.26) 31px 32px, rgba(82,154,198,0) 32px 56px); animation:ww-viewport-rain 1.8s linear infinite; filter:drop-shadow(0 0 4px rgba(52,120,169,.10)); }
+.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.07); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.68), rgba(209,224,224,.36) 47%, rgba(154,181,187,.13) 68%, rgba(154,181,187,0) 80%); filter:blur(1px); box-shadow:0 10px 32px rgba(52,120,169,.08); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-wind { position:absolute; width:var(--length); height:14px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-wind-sweep var(--duration) ease-in-out infinite; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-wind i { position:absolute; left:0; top:6px; width:100%; height:1.5px; border-radius:99px; background:linear-gradient(90deg, rgba(22,92,119,0), rgba(22,92,119,.66) 58%, rgba(255,255,255,.62)); box-shadow:0 0 7px rgba(35,119,150,.18); animation:ww-wind-flow calc(var(--duration) * .9) linear infinite; animation-delay:var(--delay); }
+.ww-motion-wind i:after { content:""; position:absolute; right:-1px; top:-2px; width:5px; height:5px; border-radius:99px; background:rgba(22,92,119,.42); box-shadow:0 0 6px rgba(255,255,255,.45); }
+.ww-motion-rain { position:absolute; width:42px; height:58px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-rain-cell calc(var(--duration) * 2.5) linear infinite; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-rain span { position:absolute; top:0; width:1.5px; height:21px; border-radius:99px; background:linear-gradient(180deg, rgba(82,154,198,0), rgba(82,154,198,.62) 58%, rgba(255,255,255,.48)); box-shadow:0 0 6px rgba(82,154,198,.14); animation:ww-rain-run var(--duration) linear infinite; animation-delay:calc(var(--delay) + var(--i) * .12s); }
+.ww-motion-rain span:nth-child(1) { left:5px; --i:0; }
+.ww-motion-rain span:nth-child(2) { left:13px; --i:1; }
+.ww-motion-rain span:nth-child(3) { left:21px; --i:2; }
+.ww-motion-rain span:nth-child(4) { left:29px; --i:3; }
+.ww-motion-rain span:nth-child(5) { left:37px; --i:4; }
 @keyframes ww-cloud-drift {
   from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
   to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.10); }
@@ -1090,38 +1090,38 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   to { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(var(--travel)); opacity:.06; }
 }
 @keyframes ww-wind-flow {
-  from { transform:translateX(-34px); opacity:.05; }
-  35% { opacity:1; }
-  to { transform:translateX(42px); opacity:0; }
+  from { transform:translateX(-18px); opacity:.04; }
+  42% { opacity:.92; }
+  to { transform:translateX(24px); opacity:0; }
 }
 @keyframes ww-rain-cell {
-  from { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(-18px); }
-  to { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(18px); }
+  from { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(-10px); }
+  to { transform:translate(-50%,-50%) rotate(var(--angle)) translateX(10px); }
 }
 @keyframes ww-rain-run {
-  from { transform:translateY(-34px); opacity:0; }
-  25% { opacity:1; }
-  to { transform:translateY(76px); opacity:0; }
+  from { transform:translateY(-22px); opacity:0; }
+  28% { opacity:.82; }
+  to { transform:translateY(50px); opacity:0; }
 }
 @keyframes ww-viewport-cloud {
-  from { transform:translate3d(-5%, -1%, 0) scale(1); }
-  to { transform:translate3d(9%, 5%, 0) scale(1.06); }
+  from { transform:translate3d(-4%, -1%, 0) scale(1); }
+  to { transform:translate3d(7%, 3%, 0) scale(1.035); }
 }
 @keyframes ww-viewport-wind {
-  from { transform:rotate(var(--angle)) translateX(-34%); }
-  to { transform:rotate(var(--angle)) translateX(34%); }
+  from { transform:rotate(var(--angle)) translateX(-24%); }
+  to { transform:rotate(var(--angle)) translateX(24%); }
 }
 @keyframes ww-viewport-rain {
   from { background-position:0 0; }
-  to { background-position:70px 96px; }
+  to { background-position:52px 72px; }
 }
 @keyframes ww-motion-badge-pulse {
-  from { transform:translateY(0); opacity:.78; }
-  to { transform:translateY(3px); opacity:1; }
+  from { transform:translateY(0); opacity:.72; }
+  to { transform:translateY(1px); opacity:.94; }
 }
 @keyframes ww-motion-dot {
-  from { box-shadow:0 0 0 0 rgba(116,214,255,.72); transform:scale(.82); }
-  to { box-shadow:0 0 0 12px rgba(116,214,255,0); transform:scale(1.12); }
+  from { box-shadow:0 0 0 0 rgba(47,156,162,.34); transform:scale(.88); }
+  to { box-shadow:0 0 0 9px rgba(47,156,162,0); transform:scale(1.04); }
 }
 </style>
 """
@@ -1141,7 +1141,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
-  badge.innerHTML = "<i></i><span>motion on</span>";
+  badge.innerHTML = "<i></i><span>weather flow</span>";
   if (payload.stage.cloud) {
     L.DomUtil.create("div", "ww-motion-cloud-shelf", stage);
   }
@@ -1149,12 +1149,12 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     L.DomUtil.create("div", "ww-motion-rain-curtain", stage);
   }
   if (payload.stage.wind) {
-    for (let idx = 0; idx < 7; idx += 1) {
+    for (let idx = 0; idx < 5; idx += 1) {
       const band = L.DomUtil.create("div", "ww-motion-wind-band", stage);
-      band.style.top = (10 + idx * 12) + "%";
+      band.style.top = (18 + idx * 13) + "%";
       band.style.setProperty("--angle", payload.stage.angle + "deg");
-      band.style.setProperty("--delay", (-idx * 0.48) + "s");
-      band.style.setProperty("--speed", (2.6 - payload.stage.wind_strength * .8 + idx * .08) + "s");
+      band.style.setProperty("--delay", (-idx * 1.1) + "s");
+      band.style.setProperty("--speed", (8.4 - payload.stage.wind_strength * 1.7 + idx * .32) + "s");
       band.innerHTML = "<i></i>";
     }
   }
@@ -1636,8 +1636,8 @@ def render_weather_motion_proof(layers: dict[str, bool], signal: dict) -> None:
 <div class="ww-motion-proof">
   <div class="ww-motion-proof-content">
     <div>
-      <strong>Animated weather motion active</strong>
-      <span>{' | '.join(active_parts)}. This strip should visibly move even before you look at the map.</span>
+      <strong>Weather flow layer</strong>
+      <span>{' | '.join(active_parts)}</span>
     </div>
     <div class="ww-motion-proof-dot"></div>
   </div>
