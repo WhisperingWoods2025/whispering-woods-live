@@ -15,7 +15,7 @@ import folium
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
-from branca.element import Element
+from branca.element import Element, MacroElement, Template
 
 try:
     import ee  # type: ignore
@@ -1062,27 +1062,30 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 }
 </style>
 """
-    script = f"""
-<script>
-(function() {{
-  const map = {m.get_name()};
-  const payload = {json.dumps(payload)};
+    motion = MacroElement()
+    motion._name = "WeatherMotionOverlay"
+    motion.payload = json.dumps(payload)
+    motion._template = Template("""
+{% macro script(this, kwargs) %}
+(function() {
+  const map = {{ this._parent.get_name() }};
+  const payload = {{ this.payload | safe }};
   const container = map.getContainer();
   const existing = container.querySelector(".ww-motion-layer");
   if (existing) existing.remove();
   const pane = map.getPane("overlayPane");
   const layer = L.DomUtil.create("div", "ww-motion-layer", pane);
   const nodes = [];
-  function register(el, item) {{
+  function register(el, item) {
     layer.appendChild(el);
-    nodes.push({{el: el, lat: item.lat, lon: item.lon}});
-  }}
-  function setBase(el, item) {{
+    nodes.push({el: el, lat: item.lat, lon: item.lon});
+  }
+  function setBase(el, item) {
     el.style.setProperty("--opacity", item.opacity);
     el.style.setProperty("--delay", item.delay + "s");
     el.style.setProperty("--duration", item.duration + "s");
-  }}
-  payload.clouds.forEach(function(item) {{
+  }
+  payload.clouds.forEach(function(item) {
     const el = document.createElement("div");
     el.className = "ww-motion-cloud";
     setBase(el, item);
@@ -1091,8 +1094,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     el.style.setProperty("--dx", item.dx + "px");
     el.style.setProperty("--dy", item.dy + "px");
     register(el, item);
-  }});
-  payload.wind.forEach(function(item) {{
+  });
+  payload.wind.forEach(function(item) {
     const el = document.createElement("div");
     el.className = "ww-motion-wind";
     el.innerHTML = "<i></i>";
@@ -1100,30 +1103,30 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     el.style.setProperty("--angle", item.angle + "deg");
     el.style.setProperty("--length", item.length + "px");
     register(el, item);
-  }});
-  payload.rain.forEach(function(item) {{
+  });
+  payload.rain.forEach(function(item) {
     const el = document.createElement("div");
     el.className = "ww-motion-rain";
     el.innerHTML = "<span></span><span></span><span></span>";
     setBase(el, item);
     el.style.setProperty("--angle", item.angle + "deg");
     register(el, item);
-  }});
-  function renderMotion() {{
-    nodes.forEach(function(node) {{
+  });
+  function renderMotion() {
+    nodes.forEach(function(node) {
       const point = map.latLngToLayerPoint([node.lat, node.lon]);
       node.el.style.left = point.x + "px";
       node.el.style.top = point.y + "px";
-    }});
-  }}
+    });
+  }
   map.on("zoom viewreset move", renderMotion);
-  setTimeout(renderMotion, 80);
-}})();
-</script>
-"""
+  requestAnimationFrame(renderMotion);
+})();
+{% endmacro %}
+""")
     root = m.get_root()
     root.header.add_child(Element(style))
-    root.script.add_child(Element(script))
+    m.add_child(motion)
 
 
 def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
@@ -1413,7 +1416,7 @@ def render_topbar(app_mode: str) -> None:
         return "active" if label == app_mode else ""
 
     nav_items = "".join(
-        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{label}</a>'
+        f'<a class="{nav_class(label)}" href="/?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_top">{label}</a>'
         for label in WORKSPACE_MODES
     )
     st.markdown(f"""
