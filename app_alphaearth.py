@@ -998,7 +998,18 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     cloud_dx, cloud_dy = screen_motion_vector(float(signal["wind_direction"]), 90 + wind * 120)
     css_angle = 90 - float(signal["wind_direction"])
 
-    payload = {"clouds": [], "wind": [], "rain": []}
+    payload = {
+        "clouds": [],
+        "wind": [],
+        "rain": [],
+        "stage": {
+            "cloud": bool(layers.get("cloud_veil")),
+            "wind": bool(layers.get("wind_flow")),
+            "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.03),
+            "angle": round(css_angle, 1),
+            "wind_strength": round(wind, 2),
+        },
+    }
     if layers.get("cloud_veil"):
         for idx in range(6):
             payload["clouds"].append({
@@ -1036,8 +1047,13 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 
     style = """
 <style>
-.ww-motion-layer { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:850; overflow:hidden; }
+.ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:1000; overflow:hidden; isolation:isolate; }
 .ww-motion-layer * { pointer-events:none; }
+.ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:multiply; }
+.ww-motion-cloud-shelf { position:absolute; left:-18%; top:4%; width:136%; height:46%; opacity:.54; filter:blur(.6px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.72), rgba(211,225,226,.50) 26%, rgba(211,225,226,0) 48%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.66), rgba(192,214,218,.46) 31%, rgba(192,214,218,0) 54%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.70), rgba(202,219,221,.42) 30%, rgba(202,219,221,0) 56%); animation:ww-viewport-cloud 8.5s ease-in-out infinite alternate; }
+.ww-motion-wind-band { position:absolute; left:-36%; width:172%; height:34px; transform:rotate(var(--angle)); opacity:.72; animation:ww-viewport-wind var(--speed) linear infinite; animation-delay:var(--delay); }
+.ww-motion-wind-band i { display:block; height:100%; background:linear-gradient(90deg, rgba(15,92,124,0) 0%, rgba(15,92,124,.10) 28%, rgba(15,92,124,.70) 46%, rgba(255,255,255,.90) 50%, rgba(15,92,124,.70) 54%, rgba(15,92,124,.08) 72%, rgba(15,92,124,0) 100%); filter:drop-shadow(0 0 9px rgba(42,124,154,.36)); }
+.ww-motion-rain-curtain { position:absolute; inset:-24%; opacity:.38; transform:rotate(var(--angle)); background:repeating-linear-gradient(90deg, rgba(82,154,198,0) 0 24px, rgba(82,154,198,.70) 24px 27px, rgba(255,255,255,.55) 27px 29px, rgba(82,154,198,0) 29px 46px); animation:ww-viewport-rain .68s linear infinite; filter:drop-shadow(0 0 8px rgba(52,120,169,.22)); }
 .ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.16); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.92), rgba(209,224,224,.72) 46%, rgba(154,181,187,.28) 66%, rgba(154,181,187,0) 78%); filter:blur(.5px); box-shadow:0 16px 44px rgba(52,120,169,.16); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
 .ww-motion-wind { position:absolute; width:var(--length); height:24px; transform:translate(-50%,-50%) rotate(var(--angle)); animation:ww-wind-sweep var(--duration) ease-in-out infinite; animation-delay:var(--delay); opacity:var(--opacity); }
 .ww-motion-wind i { position:absolute; left:0; top:11px; width:100%; height:3px; border-radius:99px; background:linear-gradient(90deg, rgba(22,92,119,0), rgba(22,92,119,.92) 54%, rgba(255,255,255,.86)); box-shadow:0 0 12px rgba(35,119,150,.35); animation:ww-wind-flow calc(var(--duration) * .82) linear infinite; animation-delay:var(--delay); }
@@ -1073,6 +1089,18 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   25% { opacity:1; }
   to { transform:translateY(76px); opacity:0; }
 }
+@keyframes ww-viewport-cloud {
+  from { transform:translate3d(-5%, -1%, 0) scale(1); }
+  to { transform:translate3d(9%, 5%, 0) scale(1.06); }
+}
+@keyframes ww-viewport-wind {
+  from { transform:rotate(var(--angle)) translateX(-34%); }
+  to { transform:rotate(var(--angle)) translateX(34%); }
+}
+@keyframes ww-viewport-rain {
+  from { background-position:0 0; }
+  to { background-position:70px 96px; }
+}
 </style>
 """
     motion = MacroElement()
@@ -1086,9 +1114,26 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const container = map.getContainer();
   const existing = container.querySelector(".ww-motion-layer");
   if (existing) existing.remove();
-  const pane = map.getPane("overlayPane");
-  const layer = L.DomUtil.create("div", "ww-motion-layer", pane);
+  const layer = L.DomUtil.create("div", "ww-motion-layer", container);
   const nodes = [];
+  const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
+  stage.style.setProperty("--angle", payload.stage.angle + "deg");
+  if (payload.stage.cloud) {
+    L.DomUtil.create("div", "ww-motion-cloud-shelf", stage);
+  }
+  if (payload.stage.rain) {
+    L.DomUtil.create("div", "ww-motion-rain-curtain", stage);
+  }
+  if (payload.stage.wind) {
+    for (let idx = 0; idx < 7; idx += 1) {
+      const band = L.DomUtil.create("div", "ww-motion-wind-band", stage);
+      band.style.top = (10 + idx * 12) + "%";
+      band.style.setProperty("--angle", payload.stage.angle + "deg");
+      band.style.setProperty("--delay", (-idx * 0.48) + "s");
+      band.style.setProperty("--speed", (2.6 - payload.stage.wind_strength * .8 + idx * .08) + "s");
+      band.innerHTML = "<i></i>";
+    }
+  }
   function register(el, item) {
     layer.appendChild(el);
     nodes.push({el: el, lat: item.lat, lon: item.lon});
@@ -1128,7 +1173,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   });
   function renderMotion() {
     nodes.forEach(function(node) {
-      const point = map.latLngToLayerPoint([node.lat, node.lon]);
+      const point = map.latLngToContainerPoint([node.lat, node.lon]);
       node.el.style.left = point.x + "px";
       node.el.style.top = point.y + "px";
     });
