@@ -1416,7 +1416,7 @@ def render_topbar(app_mode: str) -> None:
         return "active" if label == app_mode else ""
 
     nav_items = "".join(
-        f'<a class="{nav_class(label)}" href="/?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_top">{label}</a>'
+        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{label}</a>'
         for label in WORKSPACE_MODES
     )
     st.markdown(f"""
