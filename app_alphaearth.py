@@ -275,6 +275,14 @@ def inject_theme_css() -> None:
 .ww-plan-chip { color:#35513f; background:rgba(220,239,222,.54); border:1px dashed rgba(47,125,79,.24); border-radius:8px; padding:.46rem .5rem; font-size:.78rem; font-weight:730; }
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
+.ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(15,92,124,.26); border-radius:8px; min-height:74px; margin:.35rem 0 .65rem; background:linear-gradient(135deg, rgba(230,244,247,.94), rgba(255,255,255,.86)); box-shadow:0 16px 44px rgba(35,53,42,.08); }
+.ww-motion-proof:before { content:""; position:absolute; inset:-65% -30%; background:repeating-linear-gradient(115deg, rgba(15,92,124,0) 0 34px, rgba(15,92,124,.74) 34px 40px, rgba(255,255,255,.96) 40px 43px, rgba(15,92,124,0) 43px 82px); animation:ww-proof-sweep 1.15s linear infinite; opacity:.86; }
+.ww-motion-proof:after { content:""; position:absolute; left:-28%; top:10%; width:88%; height:64%; border-radius:999px; background:radial-gradient(ellipse at center, rgba(255,255,255,.96), rgba(170,198,205,.52) 54%, rgba(170,198,205,0) 72%); animation:ww-proof-cloud 3.6s ease-in-out infinite alternate; opacity:.80; }
+.ww-motion-proof-content { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.86rem .95rem; color:#103347; }
+.ww-motion-proof-content strong { display:block; font-size:.96rem; }
+.ww-motion-proof-content span { display:block; margin-top:.12rem; color:#46626d; font-size:.78rem; font-weight:720; }
+.ww-motion-proof-dot { width:14px; height:14px; border-radius:99px; background:#0f5c7c; box-shadow:0 0 0 0 rgba(15,92,124,.60); animation:ww-proof-pulse .9s ease-out infinite; flex:0 0 auto; }
+.ww-reduced-motion-note { display:none; position:relative; z-index:2; margin:.2rem .95rem .75rem; color:#7a3f10; font-size:.78rem; font-weight:760; }
 [data-testid="stIFrame"] { border:1px solid rgba(26,46,35,.14); border-radius:8px; overflow:hidden; box-shadow:0 22px 70px rgba(35,53,42,.16); }
 [data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; opacity:1!important; }
 [data-testid="stRadio"] label p, [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label span { color:var(--ww-ink)!important; opacity:1!important; }
@@ -283,6 +291,10 @@ def inject_theme_css() -> None:
 [data-testid="stAlert"], [data-testid="stDataFrame"] { border-radius:8px; overflow:hidden; }
 .stTabs [data-baseweb="tab-list"] { gap:.35rem; }
 .stTabs [data-baseweb="tab"] { border-radius:8px; padding:.35rem .62rem; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.08); }
+@keyframes ww-proof-sweep { from { transform:translate3d(-28%,0,0); } to { transform:translate3d(28%,0,0); } }
+@keyframes ww-proof-cloud { from { transform:translate3d(-10%,0,0) scale(.96); } to { transform:translate3d(92%,7%,0) scale(1.08); } }
+@keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(15,92,124,.65); transform:scale(.92); } 100% { box-shadow:0 0 0 16px rgba(15,92,124,0); transform:scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
 @media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
@@ -1049,7 +1061,9 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 <style>
 .ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:1000; overflow:hidden; isolation:isolate; }
 .ww-motion-layer * { pointer-events:none; }
-.ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:multiply; }
+.ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:normal; }
+.ww-motion-badge { position:absolute; right:14px; top:14px; z-index:3; display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; background:rgba(10,34,45,.86); color:#ffffff; border:1px solid rgba(255,255,255,.50); box-shadow:0 10px 26px rgba(0,0,0,.25); font:800 11px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.08em; text-transform:uppercase; animation:ww-motion-badge-pulse 1.05s ease-in-out infinite alternate; }
+.ww-motion-badge i { width:9px; height:9px; border-radius:99px; background:#74d6ff; box-shadow:0 0 0 0 rgba(116,214,255,.72); animation:ww-motion-dot 780ms ease-out infinite; }
 .ww-motion-cloud-shelf { position:absolute; left:-18%; top:4%; width:136%; height:46%; opacity:.54; filter:blur(.6px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.72), rgba(211,225,226,.50) 26%, rgba(211,225,226,0) 48%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.66), rgba(192,214,218,.46) 31%, rgba(192,214,218,0) 54%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.70), rgba(202,219,221,.42) 30%, rgba(202,219,221,0) 56%); animation:ww-viewport-cloud 8.5s ease-in-out infinite alternate; }
 .ww-motion-wind-band { position:absolute; left:-36%; width:172%; height:34px; transform:rotate(var(--angle)); opacity:.72; animation:ww-viewport-wind var(--speed) linear infinite; animation-delay:var(--delay); }
 .ww-motion-wind-band i { display:block; height:100%; background:linear-gradient(90deg, rgba(15,92,124,0) 0%, rgba(15,92,124,.10) 28%, rgba(15,92,124,.70) 46%, rgba(255,255,255,.90) 50%, rgba(15,92,124,.70) 54%, rgba(15,92,124,.08) 72%, rgba(15,92,124,0) 100%); filter:drop-shadow(0 0 9px rgba(42,124,154,.36)); }
@@ -1101,6 +1115,14 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   from { background-position:0 0; }
   to { background-position:70px 96px; }
 }
+@keyframes ww-motion-badge-pulse {
+  from { transform:translateY(0); opacity:.78; }
+  to { transform:translateY(3px); opacity:1; }
+}
+@keyframes ww-motion-dot {
+  from { box-shadow:0 0 0 0 rgba(116,214,255,.72); transform:scale(.82); }
+  to { box-shadow:0 0 0 12px rgba(116,214,255,0); transform:scale(1.12); }
+}
 </style>
 """
     motion = MacroElement()
@@ -1118,6 +1140,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const nodes = [];
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
+  const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
+  badge.innerHTML = "<i></i><span>motion on</span>";
   if (payload.stage.cloud) {
     L.DomUtil.create("div", "ww-motion-cloud-shelf", stage);
   }
@@ -1598,6 +1622,30 @@ def render_environment_strip(signal: dict) -> None:
     """, unsafe_allow_html=True)
 
 
+def render_weather_motion_proof(layers: dict[str, bool], signal: dict) -> None:
+    if not any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow")):
+        return
+    active_parts = []
+    if layers.get("wind_flow"):
+        active_parts.append(f"wind {format_number(signal['wind'], ' m/s')} / {signal['wind_direction']:.0f} deg")
+    if layers.get("precipitation"):
+        active_parts.append(f"rain {format_number(signal['precipitation'], ' mm')}")
+    if layers.get("cloud_veil"):
+        active_parts.append(f"cloud {round(signal['cloud'] * 100)}%")
+    st.markdown(f"""
+<div class="ww-motion-proof">
+  <div class="ww-motion-proof-content">
+    <div>
+      <strong>Animated weather motion active</strong>
+      <span>{' | '.join(active_parts)}. This strip should visibly move even before you look at the map.</span>
+    </div>
+    <div class="ww-motion-proof-dot"></div>
+  </div>
+  <div class="ww-reduced-motion-note">Your browser or OS reports reduced motion. If the strip is static, animation may be suppressed locally.</div>
+</div>
+    """, unsafe_allow_html=True)
+
+
 def render_observation_summary(period: dict, view_mode: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int) -> None:
     if readings:
         nearest = readings[0]
@@ -1795,6 +1843,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
     folium.LayerControl(position="topright", collapsed=True).add_to(m)
+    render_weather_motion_proof(layers, signal)
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
     render_map_selection(map_state)
