@@ -102,6 +102,9 @@ LAYER_SECTIONS = [
     ),
 ]
 LAYER_META = [item for _, items in LAYER_SECTIONS for item in items]
+WORKSPACE_MODES = ["Map", "3D View", "Predictions"]
+WORKSPACE_QUERY_SLUGS = {"Map": "map", "3D View": "3d-view", "Predictions": "predictions"}
+WORKSPACE_MODES_BY_SLUG = {slug: mode for mode, slug in WORKSPACE_QUERY_SLUGS.items()}
 
 VIEW_PRESETS = {
     "Weather canvas": {
@@ -223,7 +226,8 @@ def inject_theme_css() -> None:
 .ww-brand { display:flex; align-items:center; gap:.68rem; color:var(--ww-ink); font-weight:790; font-size:1rem; }
 .ww-mark { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:#ffffff; background:#16251c; font-weight:850; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
 .ww-nav { display:flex; align-items:center; gap:.32rem; padding:.22rem; border:1px solid var(--ww-line); border-radius:8px; background:rgba(246,245,239,.72); }
-.ww-nav span { padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; }
+.ww-nav a { padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; text-decoration:none; transition:background .16s ease, color .16s ease, box-shadow .16s ease; }
+.ww-nav a:hover { color:var(--ww-ink); background:rgba(255,255,255,.72); }
 .ww-nav .active { color:#ffffff; background:#17251c; box-shadow:0 8px 24px rgba(22,37,28,.18); }
 .ww-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; margin:.1rem 0 .85rem; }
 .ww-kicker, .ww-map-label, .ww-plan-label, .ww-section-label { color:var(--ww-green); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
@@ -264,7 +268,8 @@ def inject_theme_css() -> None:
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
 [data-testid="stIFrame"] { border:1px solid rgba(26,46,35,.14); border-radius:8px; overflow:hidden; box-shadow:0 22px 70px rgba(35,53,42,.16); }
-[data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; }
+[data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; opacity:1!important; }
+[data-testid="stRadio"] label p, [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label span { color:var(--ww-ink)!important; opacity:1!important; }
 [data-testid="stAlert"], [data-testid="stDataFrame"] { border-radius:8px; overflow:hidden; }
 .stTabs [data-baseweb="tab-list"] { gap:.35rem; }
 .stTabs [data-baseweb="tab"] { border-radius:8px; padding:.35rem .62rem; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.08); }
@@ -1170,14 +1175,42 @@ def apply_view_preset(view_mode: str) -> None:
         st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
 
 
+def get_query_value(name: str) -> Optional[str]:
+    value = st.query_params.get(name)
+    if isinstance(value, list):
+        value = value[0] if value else None
+    return str(value) if value else None
+
+
+def sync_workspace_mode_from_query() -> None:
+    workspace_slug = get_query_value("workspace")
+    query_mode = WORKSPACE_MODES_BY_SLUG.get(workspace_slug or "")
+    if query_mode and st.session_state.get("workspace_query_slug") != workspace_slug:
+        st.session_state["workspace_mode"] = query_mode
+        st.session_state["workspace_query_slug"] = workspace_slug
+    elif "workspace_mode" not in st.session_state:
+        st.session_state["workspace_mode"] = "Map"
+
+
+def sync_workspace_query(app_mode: str) -> None:
+    workspace_slug = WORKSPACE_QUERY_SLUGS[app_mode]
+    if get_query_value("workspace") != workspace_slug:
+        st.query_params["workspace"] = workspace_slug
+    st.session_state["workspace_query_slug"] = workspace_slug
+
+
 def render_topbar(app_mode: str) -> None:
     def nav_class(label: str) -> str:
         return "active" if label == app_mode else ""
 
+    nav_items = "".join(
+        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{label}</a>'
+        for label in WORKSPACE_MODES
+    )
     st.markdown(f"""
 <div class="ww-topbar">
   <div class="ww-brand"><div class="ww-mark">W</div><span>Whispering Woods</span></div>
-  <div class="ww-nav"><span class="{nav_class('Map')}">Map</span><span class="{nav_class('3D View')}">3D View</span><span class="{nav_class('Predictions')}">Predictions</span></div>
+  <div class="ww-nav">{nav_items}</div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -1208,8 +1241,10 @@ def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
     st.markdown("<div class='ww-panel-copy'>Shape the forest canvas by time, lens, and evidence layer.</div>", unsafe_allow_html=True)
 
+    sync_workspace_mode_from_query()
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
-    app_mode = st.radio("Workspace", ["Map", "3D View", "Predictions"], index=0, horizontal=True, label_visibility="collapsed")
+    app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode")
+    sync_workspace_query(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
