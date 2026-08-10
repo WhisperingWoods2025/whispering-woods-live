@@ -55,6 +55,8 @@ COSTED_USAGE_MODES = {"billable", "commercial", "enterprise", "government_operat
 FORECAST_CAVEAT = "Forecast is an explainable prototype model, not operational risk certification."
 FORECAST_HORIZON_YEARS = 10
 DEFAULT_FORECAST_HORIZON_YEARS = 4
+PREDICTION_DISABLED_LAYERS = {"precipitation", "wind_flow", "cloud_veil", "moisture_flow", "canopy_stress", "weather_sensors"}
+PREDICTION_FORCED_LAYERS = {"prediction"}
 
 SCENARIO_SETTINGS = {
     "Conservative": {"warming_per_year": 0.025, "drying_per_year": 0.15},
@@ -86,7 +88,7 @@ LAYER_SECTIONS = [
             ("wind_flow", "Wind streamlines", "Directional wind and rain-flow ribbons across the park."),
             ("cloud_veil", "Cloud and fog veil", "Translucent cloud/fog patches for stakeholder weather context."),
             ("moisture_flow", "Moisture flow", "Blue-green hydrology and soil-moisture ribbons."),
-            ("canopy_stress", "Canopy stress veil", "Prototype organic stress pattern driven by heat, dryness, and season."),
+            ("canopy_stress", "Forest stress signal", "Prototype organic stress pattern driven by heat, dryness, and season."),
         ],
     ),
     (
@@ -118,7 +120,7 @@ WORKSPACE_MODES_BY_SLUG = {slug: mode for mode, slug in WORKSPACE_QUERY_SLUGS.it
 
 VIEW_PRESETS = {
     "Weather canvas": {
-        "copy": "A living-map view with rain, cloud, wind, moisture, and canopy-stress patterns over the protected forest.",
+        "copy": "A living-map view with rain, cloud, wind, moisture, and forest-stress signals over the protected forest.",
         "layers": {
             "precipitation": True,
             "wind_flow": True,
@@ -250,6 +252,8 @@ def inject_theme_css() -> None:
 .ww-panel-title { color:var(--ww-ink); font-size:1.2rem; font-weight:840; margin:0 0 .18rem; }
 .ww-panel-copy { color:var(--ww-muted); font-size:.86rem; line-height:1.42; margin:0 0 .7rem; }
 .ww-control-band { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.72rem .78rem .45rem; margin-bottom:.62rem; background:rgba(247,245,238,.80); }
+.ww-control-band.disabled { background:rgba(239,239,234,.62); border-color:rgba(26,46,35,.07); }
+.ww-control-note { color:#7b877f; font-size:.76rem; line-height:1.34; margin:.16rem 0 .38rem; }
 .ww-time-card { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem .62rem; margin:.48rem 0 .56rem; }
 .ww-time-card span { color:var(--ww-muted); display:block; font-size:.7rem; font-weight:780; text-transform:uppercase; letter-spacing:.04em; }
 .ww-time-card strong { color:var(--ww-ink); display:block; font-size:.96rem; line-height:1.24; margin:.2rem 0 .5rem; }
@@ -297,6 +301,8 @@ def inject_theme_css() -> None:
 [data-testid="stIFrame"] { border:1px solid rgba(26,46,35,.14); border-radius:8px; overflow:hidden; box-shadow:0 22px 70px rgba(35,53,42,.16); }
 [data-testid="stRadio"] label, [data-testid="stCheckbox"] label, [data-testid="stSlider"] label, [data-testid="stTextArea"] label, [data-testid="stSelectbox"] label { font-weight:720; color:var(--ww-ink)!important; opacity:1!important; }
 [data-testid="stRadio"] label p, [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label span { color:var(--ww-ink)!important; opacity:1!important; }
+[data-testid="stCheckbox"]:has(input:disabled) { opacity:.48; filter:saturate(.35); }
+[data-testid="stCheckbox"]:has(input:disabled) label p, [data-testid="stCheckbox"]:has(input:disabled) label span { color:#7f8a82!important; }
 [data-testid="stNumberInput"] input { border-radius:8px!important; background:#ffffff!important; color:var(--ww-ink)!important; font-weight:740!important; }
 [data-testid="stButton"] button { border-radius:8px!important; font-weight:780!important; }
 [data-testid="stAlert"], [data-testid="stDataFrame"] { border-radius:8px; overflow:hidden; }
@@ -1453,14 +1459,14 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
         group.add_to(m)
 
     if layers.get("canopy_stress"):
-        group = folium.FeatureGroup(name="Canopy stress veil", show=True)
+        group = folium.FeatureGroup(name="Forest stress signal", show=True)
         stress_opacity = 0.07 + signal["stress"] * 0.22
         for idx in range(5):
             center_lat = min_lat + lat_span * (0.20 + ((idx * 0.16 + seed * 0.13) % 0.60))
             center_lon = min_lon + lon_span * (0.18 + ((idx * 0.22 + seed * 0.10) % 0.64))
             color = "#ce6858" if signal["stress"] > 0.55 else "#e3a72f"
             points = blob_points(center_lat, center_lon, lat_span * (0.075 + idx * 0.008), lon_span * (0.10 + idx * 0.01), seed + idx * 2.1)
-            folium.Polygon(points, color=color, weight=1, opacity=stress_opacity, fill=True, fill_color=color, fill_opacity=stress_opacity, tooltip="Prototype canopy stress veil").add_to(group)
+            folium.Polygon(points, color=color, weight=1, opacity=stress_opacity, fill=True, fill_color=color, fill_opacity=stress_opacity, tooltip="Prototype forest stress signal").add_to(group)
         group.add_to(m)
 
     add_weather_motion_overlay(m, bounds, layers, signal)
@@ -1604,13 +1610,27 @@ def build_sensor_frame(year: int, period: dict, readings: list[dict]) -> pd.Data
     return pd.DataFrame(rows)
 
 
-def apply_view_preset(view_mode: str) -> None:
-    if st.session_state.get("active_view_preset") == view_mode:
+def apply_view_preset(view_mode: str, app_mode: str) -> None:
+    preset_key = f"{app_mode}:{view_mode}"
+    if st.session_state.get("active_view_preset") == preset_key:
         return
-    st.session_state["active_view_preset"] = view_mode
+    st.session_state["active_view_preset"] = preset_key
     preset_layers = VIEW_PRESETS[view_mode]["layers"]
     for layer_id, _, _ in LAYER_META:
         st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
+
+
+def apply_prediction_layer_scope(app_mode: str) -> None:
+    if app_mode != "Predictions":
+        return
+    for layer_id in PREDICTION_DISABLED_LAYERS:
+        st.session_state[f"layer_{layer_id}"] = False
+    for layer_id in PREDICTION_FORCED_LAYERS:
+        st.session_state[f"layer_{layer_id}"] = True
+
+
+def is_prediction_scoped_layer(app_mode: str, layer_id: str) -> bool:
+    return app_mode == "Predictions" and layer_id in (PREDICTION_DISABLED_LAYERS | PREDICTION_FORCED_LAYERS)
 
 
 def get_query_value(name: str) -> Optional[str]:
@@ -1755,7 +1775,8 @@ def render_layer_panel() -> tuple:
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
     view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0, label_visibility="collapsed")
-    apply_view_preset(view_mode)
+    apply_view_preset(view_mode, app_mode)
+    apply_prediction_layer_scope(app_mode)
     st.caption(VIEW_PRESETS[view_mode]["copy"])
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1799,9 +1820,16 @@ def render_layer_panel() -> tuple:
     st.markdown("</div>", unsafe_allow_html=True)
 
     for section_label, section_layers in LAYER_SECTIONS:
-        st.markdown(f"<div class='ww-control-band'><div class='ww-section-label'>{section_label}</div>", unsafe_allow_html=True)
+        section_disabled = app_mode == "Predictions" and section_label == "Weather canvas"
+        section_class = "ww-control-band disabled" if section_disabled else "ww-control-band"
+        st.markdown(f"<div class='{section_class}'><div class='ww-section-label'>{section_label}</div>", unsafe_allow_html=True)
+        if section_disabled:
+            st.markdown("<div class='ww-control-note'>Weather motion is paused in Forecast. The model uses DWD climate trend internally instead of live rain, wind, or cloud animation switches.</div>", unsafe_allow_html=True)
+        elif app_mode == "Predictions" and section_label == "Forest evidence":
+            st.markdown("<div class='ww-control-note'>The predicted stress surface is locked on; other evidence layers remain optional context.</div>", unsafe_allow_html=True)
         for layer_id, label, help_text in section_layers:
-            st.checkbox(label, key=f"layer_{layer_id}", help=help_text)
+            disabled = is_prediction_scoped_layer(app_mode, layer_id)
+            st.checkbox(label, key=f"layer_{layer_id}", help=help_text, disabled=disabled)
         st.markdown("</div>", unsafe_allow_html=True)
 
     layers = {layer_id: bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in LAYER_META}
@@ -1841,7 +1869,7 @@ def render_environment_strip(signal: dict) -> None:
   <div class="ww-signal"><span>Wind</span><strong>{format_number(signal['wind'], ' m/s')} | {signal['wind_direction']:.0f} deg</strong><div class="ww-bar"><i style="width:{wind_width}%;background:#8eb8c7;"></i></div></div>
   <div class="ww-signal"><span>Moisture</span><strong>{moisture_width}% signal</strong><div class="ww-bar"><i style="width:{moisture_width}%;background:#3ca7a6;"></i></div></div>
   <div class="ww-signal"><span>Cloud/fog</span><strong>{cloud_width}% veil</strong><div class="ww-bar"><i style="width:{cloud_width}%;background:#b7c8cc;"></i></div></div>
-  <div class="ww-signal"><span>Canopy stress</span><strong>{stress_width}% prototype</strong><div class="ww-bar"><i style="width:{stress_width}%;background:#ce6858;"></i></div></div>
+  <div class="ww-signal"><span>Forest stress signal</span><strong>{stress_width}% prototype</strong><div class="ww-bar"><i style="width:{stress_width}%;background:#ce6858;"></i></div></div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -1919,7 +1947,7 @@ def get_enabled_labels(layers: dict[str, bool]) -> list[tuple[str, str]]:
         ("wind_flow", "Wind", "#8eb8c7"),
         ("cloud_veil", "Cloud/fog", "#b7c8cc"),
         ("moisture_flow", "Moisture", "#3ca7a6"),
-        ("canopy_stress", "Canopy stress", "#ce6858"),
+        ("canopy_stress", "Forest stress", "#ce6858"),
         ("alphaearth", "Landscape", "#449666"),
         ("prediction", "Predicted stress", "#ce6858"),
         ("tree_cover", "Tree canopy", "#2c8c4a"),
@@ -1954,7 +1982,7 @@ def build_insight_items(view_mode: str, year: int, period: dict, layers: dict[st
     if layers.get("tree_loss"):
         items.append(("Forest change", "Cumulative loss", "The red layer marks Hansen tree-cover loss up to the selected year."))
     if layers.get("canopy_stress"):
-        items.append(("Canopy signal", f"{round(signal['stress'] * 100)}% prototype", "The stress veil is a visual prototype, not a certified hazard layer."))
+        items.append(("Forest stress signal", f"{round(signal['stress'] * 100)}% prototype", "The stress signal is a visual prototype, not a certified hazard layer."))
     for note in notes[:2]:
         items.append(("Data note", "Coverage", note))
     return items[:6]
