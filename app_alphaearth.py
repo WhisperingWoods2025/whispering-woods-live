@@ -53,6 +53,8 @@ ALPHAEARTH_YEARS = set(range(2017, 2025))
 PREDICTION_STATION_ID = "00856"
 COSTED_USAGE_MODES = {"billable", "commercial", "enterprise", "government_operational", "paid", "production_paid"}
 FORECAST_CAVEAT = "Forecast is an explainable prototype model, not operational risk certification."
+FORECAST_HORIZON_YEARS = 10
+DEFAULT_FORECAST_HORIZON_YEARS = 4
 
 SCENARIO_SETTINGS = {
     "Conservative": {"warming_per_year": 0.025, "drying_per_year": 0.15},
@@ -546,6 +548,13 @@ def build_period_context(year: int, granularity: str, step_index: Optional[int])
         target = date(year, 1, 1) + timedelta(days=(week - 1) * 7 + 3)
         return {"granularity": granularity, "step": week, "target_date": target, "label": f"Week {week}, {year}"}
     return {"granularity": "Annual", "step": None, "target_date": date(year, 7, 1), "label": f"{year}"}
+
+
+def add_years_safe(value: date, years: int) -> date:
+    try:
+        return value.replace(year=value.year + years)
+    except ValueError:
+        return value.replace(year=value.year + years, day=28)
 
 
 @st.cache_data(ttl=21600, show_spinner=False)
@@ -1679,6 +1688,20 @@ def render_timeline_status(year: int, granularity: str, step_index: Optional[int
     """, unsafe_allow_html=True)
 
 
+def render_forecast_horizon_status(today: date, horizon_years: int) -> None:
+    target = add_years_safe(today, horizon_years)
+    progress = (horizon_years / FORECAST_HORIZON_YEARS) * 100
+    horizon_label = "Today" if horizon_years == 0 else f"+{horizon_years} year(s)"
+    st.markdown(f"""
+<div class="ww-time-card">
+  <span>Forecast horizon</span>
+  <strong>{horizon_label}</strong>
+  <div class="ww-time-rail"><i style="width:{progress:.1f}%;"></i></div>
+  <div class="ww-time-meta"><em>{today.strftime('%b %d, %Y')}</em><em>Prototype forecast</em><em>{target.strftime('%b %d, %Y')}</em></div>
+</div>
+    """, unsafe_allow_html=True)
+
+
 def render_topbar(app_mode: str) -> None:
     def nav_class(label: str) -> str:
         return "active" if label == app_mode else ""
@@ -1700,7 +1723,7 @@ def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode
     lens_copy = VIEW_PRESETS[view_mode]["copy"]
     if app_mode == "Predictions":
         lens_copy = FORECAST_CAVEAT
-    timeline_status = f"Projection {projection_year}" if app_mode in {"3D View", "Predictions"} else period_label
+    timeline_status = f"Today -> {projection_year}" if app_mode == "Predictions" else (f"Projection {projection_year}" if app_mode == "3D View" else period_label)
     mode_status = "Prototype forecast" if app_mode == "Predictions" else "Earth Engine live"
     st.markdown(f"""
 <div class="ww-hero">
@@ -1736,26 +1759,38 @@ def render_layer_panel() -> tuple:
     st.caption(VIEW_PRESETS[view_mode]["copy"])
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
-    year = int(st.number_input("Year", min_value=2000, max_value=2026, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
-    granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
-    weather_source = st.radio("Weather source", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
+    today = date.today()
     step_index: Optional[int] = None
-    if granularity != "Annual":
-        step_key = get_period_step_key(granularity)
-        clamp_session_step(step_key, year, granularity)
-        previous_col, step_col, next_col = st.columns([0.22, 0.56, 0.22])
-        with previous_col:
-            if st.button("Prev", key=f"{step_key}_prev", use_container_width=True):
-                advance_period_step(step_key, year, granularity, -1)
-        with next_col:
-            if st.button("Next", key=f"{step_key}_next", use_container_width=True):
-                advance_period_step(step_key, year, granularity, 1)
-        min_step, max_step = get_period_step_bounds(year, granularity)
-        with step_col:
-            step_index = int(st.number_input("Week" if granularity == "Weekly" else "Day of year", min_value=min_step, max_value=max_step, step=1, key=step_key))
-    render_timeline_status(year, granularity, step_index)
-    projection_year = int(st.number_input("Projection year", min_value=2026, max_value=2040, value=int(st.session_state.get("projection_year", 2030)), step=1, key="projection_year"))
+    if app_mode == "Predictions":
+        st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Forecast horizon</div>", unsafe_allow_html=True)
+        year = today.year
+        granularity = "Daily"
+        step_index = today.timetuple().tm_yday
+        weather_source = "Live DWD hourly"
+        default_horizon = min(max(int(st.session_state.get("forecast_horizon_years", DEFAULT_FORECAST_HORIZON_YEARS)), 0), FORECAST_HORIZON_YEARS)
+        horizon_years = int(st.slider("Years from today", min_value=0, max_value=FORECAST_HORIZON_YEARS, value=default_horizon, step=1, key="forecast_horizon_years"))
+        projection_year = today.year + horizon_years
+        render_forecast_horizon_status(today, horizon_years)
+    else:
+        st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
+        year = int(st.number_input("Year", min_value=2000, max_value=2026, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
+        granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
+        weather_source = st.radio("Weather source", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
+        if granularity != "Annual":
+            step_key = get_period_step_key(granularity)
+            clamp_session_step(step_key, year, granularity)
+            previous_col, step_col, next_col = st.columns([0.22, 0.56, 0.22])
+            with previous_col:
+                if st.button("Prev", key=f"{step_key}_prev", use_container_width=True):
+                    advance_period_step(step_key, year, granularity, -1)
+            with next_col:
+                if st.button("Next", key=f"{step_key}_next", use_container_width=True):
+                    advance_period_step(step_key, year, granularity, 1)
+            min_step, max_step = get_period_step_bounds(year, granularity)
+            with step_col:
+                step_index = int(st.number_input("Week" if granularity == "Weekly" else "Day of year", min_value=min_step, max_value=max_step, step=1, key=step_key))
+        render_timeline_status(year, granularity, step_index)
+        projection_year = int(st.number_input("Projection year", min_value=2026, max_value=2040, value=int(st.session_state.get("projection_year", 2030)), step=1, key="projection_year"))
     risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1)
     basemap = st.selectbox("Map style", ["Light", "Satellite", "Terrain"], index=0)
     height_mode = "Risk score"
@@ -1835,7 +1870,7 @@ def render_weather_motion_proof(layers: dict[str, bool], signal: dict) -> None:
     """, unsafe_allow_html=True)
 
 
-def render_observation_summary(period: dict, view_mode: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int) -> None:
+def render_observation_summary(period: dict, view_mode: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int, app_mode: str, projection_year: int) -> None:
     if readings:
         nearest = readings[0]
         weather_label = f"{format_number(nearest['mean_temp'], ' C')} | {format_number(nearest['precipitation'], ' mm')}"
@@ -1843,9 +1878,11 @@ def render_observation_summary(period: dict, view_mode: str, layers: dict[str, b
     else:
         weather_label = f"Seasonal fallback for {period['label']}"
         station_label = "DWD period records unavailable"
+    time_label = "Forecast horizon" if app_mode == "Predictions" else "Time view"
+    time_value = f"Today -> {projection_year}" if app_mode == "Predictions" else period["label"]
     st.markdown(f"""
 <div class="ww-kpi-grid">
-  <div class="ww-kpi"><span>Time view</span><strong>{period['label']}</strong></div>
+  <div class="ww-kpi"><span>{time_label}</span><strong>{time_value}</strong></div>
   <div class="ww-kpi"><span>Nearest weather</span><strong>{weather_label}</strong></div>
   <div class="ww-kpi"><span>Coverage</span><strong>{station_label}</strong></div>
   <div class="ww-kpi"><span>Lens</span><strong>{view_mode}</strong></div>
@@ -2048,6 +2085,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
 def render_predictions_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+    forecast_label = f"Today -> {projection_year}"
     map_layers = dict(layers)
     map_layers["prediction"] = False
     try:
@@ -2060,7 +2098,7 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the prediction map.", exc)
     folium.LayerControl(position="topright", collapsed=True).add_to(m)
-    render_map_heading(f"{period['label']} -> {projection_year}", [("Predicted stress", "#ce6858"), ("Moisture", "#3ca7a6"), ("Wind", "#8eb8c7")], area_name, title="Forecast surface")
+    render_map_heading(forecast_label, [("Predicted stress", "#ce6858"), ("Moisture", "#3ca7a6"), ("Wind", "#8eb8c7")], area_name, title="Forecast surface")
     map_state = st_folium(m, width=None, height=660)
     render_map_selection(map_state)
     st.caption(" ".join(notes) if notes else "Prediction is calculated in-app from public read-only layers and local DWD observations.")
@@ -2111,7 +2149,7 @@ def main() -> None:
         render_topbar(app_mode)
         render_header(usage_mode, enabled_count, area_name, view_mode, app_mode, period["label"], projection_year)
         render_environment_strip(signal)
-        render_observation_summary(period, view_mode, layers, signal, readings, unavailable)
+        render_observation_summary(period, view_mode, layers, signal, readings, unavailable, app_mode, projection_year)
         if app_mode == "Map":
             render_map_mode(year, period, projection_year, scenario_name, basemap, layers, view_mode, signal, readings, unavailable, aoi, area_name, center, bounds)
         elif app_mode == "Predictions":
