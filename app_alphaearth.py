@@ -52,6 +52,7 @@ AOI_COLOR = "#E3A72F"
 ALPHAEARTH_YEARS = set(range(2017, 2025))
 PREDICTION_STATION_ID = "00856"
 COSTED_USAGE_MODES = {"billable", "commercial", "enterprise", "government_operational", "paid", "production_paid"}
+FORECAST_CAVEAT = "Forecast is an explainable prototype model, not operational risk certification."
 
 SCENARIO_SETTINGS = {
     "Conservative": {"warming_per_year": 0.025, "drying_per_year": 0.15},
@@ -269,6 +270,8 @@ def inject_theme_css() -> None:
 .ww-kpi { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.72rem .78rem; background:rgba(255,255,255,.78); box-shadow:0 12px 34px rgba(35,53,42,.07); min-height:82px; }
 .ww-kpi span { color:var(--ww-muted); font-size:.72rem; font-weight:760; display:block; }
 .ww-kpi strong { color:var(--ww-ink); display:block; font-size:.98rem; margin-top:.24rem; line-height:1.22; }
+.ww-forecast-caveat { border:1px solid rgba(206,104,88,.22); border-radius:8px; padding:.68rem .78rem; margin:.3rem 0 .72rem; background:rgba(206,104,88,.075); color:#6d352b; font-size:.88rem; line-height:1.38; }
+.ww-forecast-caveat strong { display:block; color:#5c2c24; font-size:.72rem; font-weight:820; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.16rem; }
 .ww-insight-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin-top:.58rem; }
 .ww-insight { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.78rem .82rem; background:rgba(255,255,255,.76); min-height:116px; }
 .ww-insight span { display:block; color:var(--ww-green); font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
@@ -1695,7 +1698,10 @@ def render_topbar(app_mode: str) -> None:
 def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode: str, app_mode: str, period_label: str, projection_year: int) -> None:
     titles = {"Map": "Forest weather canvas", "3D View": "Terrain, stress, and observation points", "Predictions": "Forest vulnerability forecast"}
     lens_copy = VIEW_PRESETS[view_mode]["copy"]
+    if app_mode == "Predictions":
+        lens_copy = FORECAST_CAVEAT
     timeline_status = f"Projection {projection_year}" if app_mode in {"3D View", "Predictions"} else period_label
+    mode_status = "Prototype forecast" if app_mode == "Predictions" else "Earth Engine live"
     st.markdown(f"""
 <div class="ww-hero">
   <div>
@@ -1704,7 +1710,7 @@ def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode
     <div class="ww-hero-copy">{lens_copy}</div>
   </div>
   <div class="ww-status-row">
-    <div class="ww-status">Earth Engine live</div>
+    <div class="ww-status">{mode_status}</div>
     <div class="ww-status gold">{usage_mode}</div>
     <div class="ww-status">{timeline_status}</div>
     <div class="ww-status">{enabled_count} layers</div>
@@ -1859,6 +1865,7 @@ def render_prediction_summary(prediction_df: pd.DataFrame, climate_signal: dict,
     temp_delta = climate_signal.get("projected_temp_delta", 0)
     precip_delta = climate_signal.get("projected_precip_delta_pct", 0)
     st.markdown(f"""
+<div class="ww-forecast-caveat"><strong>Prototype forecast</strong>{FORECAST_CAVEAT}</div>
 <div class="ww-kpi-grid">
   <div class="ww-kpi"><span>Mean stress</span><strong>{mean_score}/100</strong></div>
   <div class="ww-kpi"><span>High-stress share</span><strong>{high_share:.0f}%</strong></div>
@@ -1906,7 +1913,7 @@ def build_insight_items(view_mode: str, year: int, period: dict, layers: dict[st
     if layers.get("alphaearth"):
         items.append(("Landscape", "AlphaEarth active" if year in ALPHAEARTH_YEARS else "AlphaEarth hidden", "Annual embeddings currently cover 2017-2024." if year not in ALPHAEARTH_YEARS else "Embedding colors reveal landscape pattern differences inside the park."))
     if layers.get("prediction"):
-        items.append(("Forecast", "Stress surface active", "The prototype score combines terrain, canopy, loss, water, and DWD climate trend signals."))
+        items.append(("Forecast", "Prototype model", FORECAST_CAVEAT))
     if layers.get("tree_loss"):
         items.append(("Forest change", "Cumulative loss", "The red layer marks Hansen tree-cover loss up to the selected year."))
     if layers.get("canopy_stress"):
@@ -1949,7 +1956,7 @@ def render_prediction_evidence(prediction_df: pd.DataFrame, climate_signal: dict
         st.markdown(f"""
 <div class="ww-method">
 <strong>Projection {projection_year} | {scenario_name}</strong><br>
-This is an explainable prototype index from 0-100. It combines public terrain, slope, tree canopy, tree-cover loss, recurring water, and the DWD annual climate signal from {climate_signal.get('station', 'the selected station')}. It is designed for stakeholder exploration, not operational hazard certification.
+{FORECAST_CAVEAT} It combines public terrain, slope, tree canopy, tree-cover loss, recurring water, and the DWD annual climate signal from {climate_signal.get('station', 'the selected station')}. It is designed for stakeholder exploration, not operational use.
 </div>
         """, unsafe_allow_html=True)
 
