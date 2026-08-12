@@ -61,7 +61,7 @@ PREDICTION_FORCED_LAYERS = {"prediction"}
 WEATHER_PANE_CONFIG = {
     "cloud": {"name": "wwWeatherCloudPane", "z_index": 421, "blend": "screen", "opacity": 0.74},
     "rain": {"name": "wwWeatherRainPane", "z_index": 426, "blend": "normal", "opacity": 0.72},
-    "moisture": {"name": "wwWeatherMoisturePane", "z_index": 432, "blend": "screen", "opacity": 0.82},
+    "moisture": {"name": "wwWeatherMoisturePane", "z_index": 432, "blend": "normal", "opacity": 0.90},
     "wind": {"name": "wwWeatherWindPane", "z_index": 438, "blend": "screen", "opacity": 0.96},
     "stress": {"name": "wwWeatherStressPane", "z_index": 444, "blend": "normal", "opacity": 0.78},
 }
@@ -459,6 +459,11 @@ def inject_theme_css() -> None:
 .ww-gsplat-step { border:1px solid rgba(52,120,169,.13); border-radius:8px; background:rgba(235,244,248,.72); padding:.58rem .62rem; color:#47616d; font-size:.78rem; line-height:1.34; }
 .ww-gsplat-step span { display:block; color:#3478a9; font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.16rem; }
 .ww-gsplat-step strong { display:block; color:#1f4f63; margin-bottom:.12rem; }
+.ww-3d-overlay-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; margin:.42rem 0 .68rem; }
+.ww-3d-overlay { border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(255,255,255,.76); padding:.58rem .64rem; color:#5d6b62; font-size:.78rem; line-height:1.32; min-height:86px; }
+.ww-3d-overlay span { display:flex; align-items:center; gap:.34rem; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.16rem; }
+.ww-3d-overlay span i { width:8px; height:8px; border-radius:999px; display:inline-block; background:var(--dot); }
+.ww-3d-overlay strong { color:var(--ww-ink); display:block; font-size:.9rem; line-height:1.18; margin-bottom:.16rem; }
 .ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(43,95,92,.13); border-radius:8px; min-height:50px; margin:.18rem 0 .56rem; background:linear-gradient(135deg, rgba(247,251,248,.94), rgba(235,245,245,.70)); box-shadow:0 10px 30px rgba(35,53,42,.06); }
 .ww-motion-proof:before { content:""; position:absolute; left:-24%; right:-24%; top:0; height:100%; background:radial-gradient(ellipse at 16% 38%, rgba(255,255,255,.76), rgba(197,217,219,.22) 34%, rgba(197,217,219,0) 58%), repeating-linear-gradient(104deg, rgba(44,116,139,0) 0 38px, rgba(44,116,139,.20) 38px 40px, rgba(255,255,255,.50) 40px 41px, rgba(44,116,139,0) 41px 82px); animation:ww-proof-sweep 7.8s linear infinite; opacity:.62; }
 .ww-motion-proof:after { content:""; position:absolute; left:-18%; bottom:10px; width:42%; height:10px; border-radius:999px; background:linear-gradient(90deg, rgba(15,92,124,0), rgba(15,92,124,.42), rgba(255,255,255,.62), rgba(15,92,124,0)); filter:blur(.2px); animation:ww-proof-cloud 6.2s ease-in-out infinite; opacity:.54; }
@@ -481,7 +486,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -712,17 +717,31 @@ def format_dwd_hour(raw_date: str) -> str:
     return parsed.strftime("%Y-%m-%d %H:00") if parsed else raw_date or "n/a"
 
 
+def current_observed_date() -> date:
+    return min(date.today(), date(CURRENT_OBSERVATION_YEAR, 12, 31))
+
+
+def clamp_observed_target(target: date) -> date:
+    observed_max = current_observed_date()
+    if target.year >= observed_max.year and target > observed_max:
+        return observed_max
+    return target
+
+
 def build_period_context(year: int, granularity: str, step_index: Optional[int]) -> dict:
     max_day = 366 if calendar.isleap(year) else 365
     if granularity == "Daily":
         day_index = min(max(1, int(step_index or 196)), max_day)
-        target = date(year, 1, 1) + timedelta(days=day_index - 1)
+        target = clamp_observed_target(date(year, 1, 1) + timedelta(days=day_index - 1))
+        day_index = target.timetuple().tm_yday if target.year == year else day_index
         return {"granularity": granularity, "step": day_index, "target_date": target, "label": target.strftime("%b %d, %Y")}
     if granularity == "Weekly":
         week = min(max(1, int(step_index or 28)), 52)
-        target = date(year, 1, 1) + timedelta(days=(week - 1) * 7 + 3)
+        target = clamp_observed_target(date(year, 1, 1) + timedelta(days=(week - 1) * 7 + 3))
+        if target.year == year:
+            week = min(week, ((target.timetuple().tm_yday - 1) // 7) + 1)
         return {"granularity": granularity, "step": week, "target_date": target, "label": f"Week {week}, {year}"}
-    return {"granularity": "Annual", "step": None, "target_date": date(year, 7, 1), "label": f"{year}"}
+    return {"granularity": "Annual", "step": None, "target_date": clamp_observed_target(date(year, 7, 1)), "label": f"{year}"}
 
 
 def add_years_safe(value: date, years: int) -> date:
@@ -1412,16 +1431,18 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 .ww-motion-badge { position:absolute; right:12px; top:12px; z-index:6; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
 .ww-motion-badge i { width:6px; height:6px; border-radius:99px; background:#2f9ca2; box-shadow:0 0 0 0 rgba(47,156,162,.34); animation:ww-motion-dot 2.2s ease-out infinite; }
 .ww-motion-cloud-shelf { position:absolute; z-index:1; left:-24%; top:2%; width:148%; height:42%; opacity:.13; filter:blur(2.6px); mix-blend-mode:screen; background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.42), rgba(211,225,226,.11) 30%, rgba(211,225,226,0) 58%), radial-gradient(ellipse at 54% 36%, rgba(255,255,255,.30), rgba(192,214,218,.10) 34%, rgba(192,214,218,0) 62%), radial-gradient(ellipse at 83% 54%, rgba(255,255,255,.32), rgba(202,219,221,.10) 34%, rgba(202,219,221,0) 64%); animation:ww-viewport-cloud 28s ease-in-out infinite alternate; }
-.ww-wind-streamfield, .ww-moisture-streamfield { position:absolute; inset:-7%; width:114%; height:114%; transform:rotate(var(--angle)); transform-origin:center; mix-blend-mode:screen; }
-.ww-wind-streamfield { z-index:4; opacity:var(--wind-alpha); filter:drop-shadow(0 0 1px rgba(255,255,255,.22)); }
+.ww-wind-streamfield, .ww-moisture-streamfield { position:absolute; inset:-7%; width:114%; height:114%; transform:rotate(var(--angle)); transform-origin:center; }
+.ww-wind-streamfield { z-index:5; opacity:var(--wind-alpha); mix-blend-mode:screen; filter:drop-shadow(0 0 1px rgba(255,255,255,.22)); }
 .ww-wind-streamfield path { fill:none; stroke:rgba(228,250,255,.50); stroke-width:.34; stroke-linecap:round; stroke-dasharray:7 22; stroke-dashoffset:0; vector-effect:non-scaling-stroke; animation:ww-streamline-drift var(--speed) linear infinite; animation-delay:var(--delay); }
 .ww-wind-streamfield path:nth-child(3n) { stroke:rgba(190,234,248,.34); stroke-width:.26; stroke-dasharray:5 24; }
 .ww-wind-streamfield path:nth-child(4n) { stroke:rgba(255,255,255,.42); stroke-width:.22; stroke-dasharray:4 22; }
 .ww-wind-streamfield path:nth-child(7n) { opacity:.54; }
-.ww-moisture-streamfield { z-index:3; opacity:var(--moisture-alpha); transform:rotate(calc(var(--angle) - 24deg)); filter:blur(.15px); }
-.ww-moisture-streamfield path { fill:none; stroke:rgba(96,206,196,.34); stroke-width:.42; stroke-linecap:round; stroke-dasharray:2 20; vector-effect:non-scaling-stroke; animation:ww-moisture-drift var(--speed) ease-in-out infinite; animation-delay:var(--delay); }
-.ww-moisture-streamfield path:nth-child(3n) { stroke:rgba(180,231,220,.30); stroke-width:.28; stroke-dasharray:1 17; }
-.ww-precip-radar { position:absolute; z-index:2; inset:-22%; opacity:var(--rain-alpha); filter:blur(18px) saturate(1.08); mix-blend-mode:screen; background-blend-mode:screen; background:radial-gradient(ellipse at 64% 58%, rgba(32,95,255,.34) 0 10%, rgba(64,128,255,.16) 22%, rgba(90,180,255,.055) 40%, rgba(90,180,255,0) 62%), radial-gradient(ellipse at 44% 72%, rgba(93,108,245,.24) 0 9%, rgba(98,138,245,.12) 22%, rgba(111,168,245,.045) 42%, rgba(111,168,245,0) 64%), radial-gradient(ellipse at 78% 70%, rgba(180,82,216,.16) 0 7%, rgba(183,82,216,.07) 20%, rgba(183,82,216,0) 48%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.16) 0 10%, rgba(91,180,255,.055) 28%, rgba(91,180,255,0) 54%); animation:ww-radar-drift 20s ease-in-out infinite alternate; }
+.ww-moisture-field { position:absolute; z-index:2; inset:-18%; opacity:var(--moisture-field-alpha); filter:blur(18px) saturate(1.18); mix-blend-mode:multiply; background:radial-gradient(ellipse at 24% 64%, rgba(41,167,156,.34) 0 10%, rgba(78,190,177,.16) 25%, rgba(78,190,177,.04) 45%, rgba(78,190,177,0) 66%), radial-gradient(ellipse at 56% 52%, rgba(79,184,209,.30) 0 9%, rgba(88,193,202,.13) 26%, rgba(88,193,202,.035) 48%, rgba(88,193,202,0) 70%), radial-gradient(ellipse at 78% 74%, rgba(37,122,137,.28) 0 8%, rgba(58,162,164,.12) 25%, rgba(58,162,164,.03) 46%, rgba(58,162,164,0) 68%); animation:ww-moisture-field 24s ease-in-out infinite alternate; }
+.ww-moisture-streamfield { z-index:4; opacity:var(--moisture-alpha); transform:rotate(calc(var(--angle) - 24deg)); mix-blend-mode:normal; filter:drop-shadow(0 0 .8px rgba(31,115,112,.16)); }
+.ww-moisture-streamfield path { fill:none; stroke:rgba(34,132,128,.50); stroke-width:.30; stroke-linecap:round; stroke-dasharray:3 18; vector-effect:non-scaling-stroke; animation:ww-moisture-drift var(--speed) ease-in-out infinite; animation-delay:var(--delay); }
+.ww-moisture-streamfield path:nth-child(3n) { stroke:rgba(92,185,176,.44); stroke-width:.22; stroke-dasharray:2 19; }
+.ww-moisture-streamfield path:nth-child(5n) { stroke:rgba(24,92,104,.36); stroke-width:.18; stroke-dasharray:1 16; }
+.ww-precip-radar { position:absolute; z-index:3; inset:-22%; opacity:var(--rain-alpha); filter:blur(18px) saturate(1.08); mix-blend-mode:screen; background-blend-mode:screen; background:radial-gradient(ellipse at 64% 58%, rgba(32,95,255,.34) 0 10%, rgba(64,128,255,.16) 22%, rgba(90,180,255,.055) 40%, rgba(90,180,255,0) 62%), radial-gradient(ellipse at 44% 72%, rgba(93,108,245,.24) 0 9%, rgba(98,138,245,.12) 22%, rgba(111,168,245,.045) 42%, rgba(111,168,245,0) 64%), radial-gradient(ellipse at 78% 70%, rgba(180,82,216,.16) 0 7%, rgba(183,82,216,.07) 20%, rgba(183,82,216,0) 48%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.16) 0 10%, rgba(91,180,255,.055) 28%, rgba(91,180,255,0) 54%); animation:ww-radar-drift 20s ease-in-out infinite alternate; }
 .ww-precip-radar:before { content:""; position:absolute; inset:-4%; opacity:.70; background:radial-gradient(ellipse at 58% 46%, rgba(255,255,255,.90) 0 4%, rgba(255,255,255,.26) 8%, rgba(255,255,255,0) 20%), radial-gradient(ellipse at 46% 62%, rgba(255,255,255,.54) 0 3%, rgba(255,255,255,0) 16%), radial-gradient(ellipse at 72% 70%, rgba(255,255,255,.42) 0 3%, rgba(255,255,255,0) 15%); animation:ww-radar-holes 12s ease-in-out infinite alternate; }
 .ww-precip-radar:after { content:""; position:absolute; inset:0; opacity:.40; background:radial-gradient(ellipse at 68% 58%, rgba(31,91,235,.30) 0 8%, rgba(31,91,235,0) 32%), radial-gradient(ellipse at 78% 68%, rgba(177,73,205,.22) 0 7%, rgba(177,73,205,0) 30%); animation:ww-radar-pulse 9.5s ease-in-out infinite alternate; }
 .ww-motion-cloud { position:absolute; z-index:1; border-radius:999px; border:1px solid rgba(107,133,138,.04); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.52), rgba(209,224,224,.20) 48%, rgba(154,181,187,.08) 70%, rgba(154,181,187,0) 82%); filter:blur(1.7px); box-shadow:0 10px 28px rgba(52,120,169,.04); mix-blend-mode:screen; animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
@@ -1472,6 +1493,10 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   35% { opacity:.72; }
   to { stroke-dashoffset:-26; opacity:.12; transform:translateX(12px); }
 }
+@keyframes ww-moisture-field {
+  from { transform:translate3d(-2%, 1%, 0) scale(.99); }
+  to { transform:translate3d(3%, -2%, 0) scale(1.04); opacity:var(--moisture-field-alpha); }
+}
 @keyframes ww-radar-drift {
   from { transform:translate3d(-3%,1%,0) scale(1); }
   to { transform:translate3d(4%,-2%,0) scale(1.035); }
@@ -1511,7 +1536,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
   stage.style.setProperty("--wind-alpha", (0.28 + payload.stage.wind_strength * 0.18).toFixed(2));
   stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.30).toFixed(2));
-  stage.style.setProperty("--moisture-alpha", (0.14 + payload.stage.moisture_strength * 0.18).toFixed(2));
+  stage.style.setProperty("--moisture-alpha", (0.30 + payload.stage.moisture_strength * 0.30).toFixed(2));
+  stage.style.setProperty("--moisture-field-alpha", (0.18 + payload.stage.moisture_strength * 0.22).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
   function addWindStreamfield() {
@@ -1567,7 +1593,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     svg.setAttribute("viewBox", "0 0 100 100");
     svg.setAttribute("preserveAspectRatio", "none");
     svg.style.setProperty("--angle", payload.stage.angle + "deg");
-    const count = Math.round(20 + payload.stage.moisture_strength * 18);
+    const count = Math.round(34 + payload.stage.moisture_strength * 26);
     for (let idx = 0; idx < count; idx += 1) {
       const col = idx % 7;
       const row = Math.floor(idx / 7);
@@ -1596,6 +1622,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     L.DomUtil.create("div", "ww-precip-radar", stage);
   }
   if (payload.stage.moisture) {
+    L.DomUtil.create("div", "ww-moisture-field", stage);
     addMoistureStreamfield();
   }
   if (payload.stage.wind) {
@@ -1690,16 +1717,16 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
 
     if layers.get("moisture_flow"):
         group = folium.FeatureGroup(name="Moisture flow", show=True)
-        moisture_opacity = 0.028 + signal["moisture"] * 0.075
-        for idx in range(16):
+        moisture_opacity = 0.070 + signal["moisture"] * 0.115
+        for idx in range(22):
             start_lat = min_lat + lat_span * (0.16 + ((idx * 0.085 + seed * 0.05) % 0.68))
-            start_lon = min_lon + lon_span * (0.05 + idx * 0.057)
+            start_lon = min_lon + lon_span * (0.04 + ((idx * 0.051 + seed * 0.03) % 0.88))
             points = flowline_points(start_lat, start_lon, 24 + idx * 3, lat_span * 0.52, lon_span * 0.46, seed + idx)
-            folium.PolyLine(points, color="#b8e9df", weight=0.62, opacity=moisture_opacity, dash_array="2 24", tooltip="Moisture flow", pane=moisture_pane, **silent_path).add_to(group)
-            folium.PolyLine(points, color="#3ba3a0", weight=0.18, opacity=moisture_opacity * 0.74, dash_array="2 24", pane=moisture_pane, **silent_path).add_to(group)
+            folium.PolyLine(points, color="#2f9a98", weight=0.52, opacity=moisture_opacity, dash_array="3 22", tooltip="Moisture flow", pane=moisture_pane, **silent_path).add_to(group)
+            folium.PolyLine(points, color="#b8e9df", weight=0.18, opacity=moisture_opacity * 0.62, dash_array="2 24", pane=moisture_pane, **silent_path).add_to(group)
         for lake_lat, lake_lon in ((47.592, 12.989), (47.606, 12.849)):
             points = blob_points(lake_lat, lake_lon, lat_span * 0.085, lon_span * 0.07, seed)
-            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 0.66, tooltip="Water-buffer moisture zone", pane=moisture_pane, **silent_path).add_to(group)
+            folium.Polygon(points, color="#2f9a98", weight=0.35, opacity=moisture_opacity * 0.42, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 0.92, tooltip="Water-buffer moisture zone", pane=moisture_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("canopy_stress"):
@@ -1882,6 +1909,108 @@ def build_sensor_frame(year: int, period: dict, readings: list[dict], signal: Op
     return pd.DataFrame(rows)
 
 
+def deck_polygon(points: list[list[float]]) -> list[list[float]]:
+    return [[lon, lat] for lat, lon in points]
+
+
+def build_3d_overlay_frames(prediction_df: pd.DataFrame, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> dict[str, pd.DataFrame]:
+    stats = get_bounds_stats(bounds)
+    lat_span, lon_span = stats["lat_span"], stats["lon_span"]
+    min_lat, min_lon = stats["min_lat"], stats["min_lon"]
+    seed = (int(signal["wind_direction"]) + int(float(signal["precipitation"] or 0) * 10)) / 57.0
+    stress_rows: list[dict] = []
+    canopy_rows: list[dict] = []
+    water_rows: list[dict] = []
+    moisture_paths: list[dict] = []
+    wind_paths: list[dict] = []
+    rain_paths: list[dict] = []
+
+    if not prediction_df.empty:
+        median_score = float(prediction_df["risk_score"].median())
+        for idx, row in prediction_df.iterrows():
+            score = float(row["risk_score"])
+            cover = float(row.get("tree_cover", 0) or 0)
+            water = float(row.get("water", 0) or 0)
+            base_seed = seed + idx * 0.37
+            radius_lat = lat_span * (0.026 + clamp(score / 100, 0, 1) * 0.016)
+            radius_lon = lon_span * (0.026 + clamp(score / 100, 0, 1) * 0.018)
+
+            if score >= max(42, median_score - 4):
+                color = [206, 104, 88, int(34 + clamp(score / 100, 0, 1) * 72)] if score >= 68 else [227, 167, 47, int(28 + clamp(score / 100, 0, 1) * 54)]
+                stress_rows.append({
+                    "name": f"{row['risk_label']} stress veil",
+                    "tooltip": f"Prototype stress {score:.0f}/100 | {row['reason']}",
+                    "polygon": deck_polygon(blob_points(float(row["lat"]), float(row["lon"]), radius_lat, radius_lon, base_seed, count=26)),
+                    "fill_color": color,
+                    "line_color": [255, 255, 255, 0],
+                })
+
+            if layers.get("tree_cover") or layers.get("habitat") or layers.get("alphaearth"):
+                canopy_rows.append({
+                    "name": "Canopy context",
+                    "tooltip": f"Tree cover baseline {cover:.0f}%",
+                    "polygon": deck_polygon(blob_points(float(row["lat"]), float(row["lon"]), lat_span * 0.020, lon_span * 0.022, base_seed + 4.2, count=22)),
+                    "fill_color": [43, 114, 72, int(18 + clamp(cover / 100, 0, 1) * 54)],
+                    "line_color": [255, 255, 255, 0],
+                })
+
+            if (layers.get("water") or layers.get("soil_moisture") or layers.get("moisture_flow")) and water >= 12:
+                water_rows.append({
+                    "name": "Water-buffer veil",
+                    "tooltip": f"Recurring water signal {water:.0f}%",
+                    "polygon": deck_polygon(blob_points(float(row["lat"]), float(row["lon"]), lat_span * 0.030, lon_span * 0.033, base_seed + 8.1, count=28)),
+                    "fill_color": [48, 166, 160, int(28 + clamp(water / 80, 0, 1) * 72)],
+                    "line_color": [99, 210, 202, 80],
+                })
+
+    if layers.get("moisture_flow") or layers.get("soil_moisture") or layers.get("water"):
+        for idx in range(14):
+            start_lat = min_lat + lat_span * (0.14 + ((idx * 0.071 + seed * 0.05) % 0.70))
+            start_lon = min_lon + lon_span * (0.04 + ((idx * 0.063 + seed * 0.03) % 0.88))
+            path = deck_polygon(flowline_points(start_lat, start_lon, float(signal["wind_direction"]) - 32 + idx * 1.6, lat_span * 0.50, lon_span * 0.46, seed + idx * 1.17, segments=26))
+            moisture_paths.append({
+                "name": "Moisture corridor",
+                "tooltip": f"Moisture context {round(signal['moisture'] * 100)}%",
+                "path": path,
+                "color": [44, 155, 150, int(90 + signal["moisture"] * 72)],
+                "width": 16 + signal["moisture"] * 16,
+            })
+
+    if layers.get("wind_flow"):
+        wind_strength = clamp(float(signal["wind"] or 0) / 9, 0, 1)
+        for idx in range(16):
+            start_lat = min_lat + lat_span * (0.04 + idx * 0.055)
+            start_lon = min_lon + lon_span * (0.02 + ((idx * 0.17 + seed * 0.19) % 0.92))
+            wind_paths.append({
+                "name": "Wind direction ribbon",
+                "tooltip": f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg",
+                "path": deck_polygon(flowline_points(start_lat, start_lon, float(signal["wind_direction"]), lat_span * 0.56, lon_span * 0.56, seed + idx * 0.61, segments=24)),
+                "color": [214, 242, 249, int(84 + wind_strength * 86)],
+                "width": 8 + wind_strength * 12,
+            })
+
+    if layers.get("precipitation") and signal["precip_intensity"] > 0.01:
+        for idx in range(9):
+            start_lat = min_lat + lat_span * (0.09 + idx * 0.082)
+            start_lon = min_lon + lon_span * (0.08 + ((idx * 0.11 + seed) % 0.78))
+            rain_paths.append({
+                "name": "Rainfall falloff ribbon",
+                "tooltip": f"Precipitation {format_number(signal['precipitation'], ' mm')}",
+                "path": deck_polygon(flowline_points(start_lat, start_lon, float(signal["wind_direction"]) + 18, lat_span * 0.36, lon_span * 0.34, seed + idx, segments=18)),
+                "color": [82, 143, 255, int(52 + signal["precip_intensity"] * 108)],
+                "width": 18 + signal["precip_intensity"] * 34,
+            })
+
+    return {
+        "stress": pd.DataFrame(stress_rows),
+        "canopy": pd.DataFrame(canopy_rows),
+        "water": pd.DataFrame(water_rows),
+        "moisture_paths": pd.DataFrame(moisture_paths),
+        "wind_paths": pd.DataFrame(wind_paths),
+        "rain_paths": pd.DataFrame(rain_paths),
+    }
+
+
 def apply_view_preset(view_mode: str, app_mode: str) -> None:
     preset_key = f"{app_mode}:{view_mode}"
     if st.session_state.get("active_view_preset") == preset_key:
@@ -1934,18 +2063,26 @@ def get_period_step_key(granularity: str) -> str:
 
 
 def get_period_step_bounds(year: int, granularity: str) -> tuple[int, int]:
+    observed_max = current_observed_date()
     if granularity == "Daily":
-        return 1, 366 if calendar.isleap(year) else 365
+        max_step = 366 if calendar.isleap(year) else 365
+        if year == observed_max.year:
+            max_step = min(max_step, observed_max.timetuple().tm_yday)
+        return 1, max(1, max_step)
     if granularity == "Weekly":
-        return 1, 52
+        max_step = 52
+        if year == observed_max.year:
+            max_step = min(max_step, ((observed_max.timetuple().tm_yday - 1) // 7) + 1)
+        return 1, max(1, max_step)
     return 1, 1
 
 
 def get_default_period_step(year: int, granularity: str) -> int:
+    _, max_step = get_period_step_bounds(year, granularity)
     if granularity == "Daily":
-        return min(196, get_period_step_bounds(year, granularity)[1])
+        return min(196, max_step)
     if granularity == "Weekly":
-        return 28
+        return min(28, max_step)
     return 1
 
 
@@ -1974,16 +2111,17 @@ def render_mode_context(app_mode: str) -> None:
 
 def render_timeline_status(year: int, granularity: str, step_index: Optional[int]) -> None:
     period = build_period_context(year, granularity, step_index)
+    observed_max = current_observed_date()
     if granularity == "Annual":
-        progress = ((year - 2000) / (CURRENT_OBSERVATION_YEAR - 2000)) * 100
-        left_label, right_label = "2000", str(CURRENT_OBSERVATION_YEAR)
-        display_label = f"{year} evidence snapshot"
+        progress = ((year - 2000) / max(observed_max.year - 2000, 1)) * 100
+        left_label, right_label = "2000", ("Today" if year == observed_max.year else str(observed_max.year))
+        display_label = f"{year} evidence snapshot" if year < observed_max.year else f"{year} evidence to today"
         center_label = "Annual"
     else:
         min_step, max_step = get_period_step_bounds(year, granularity)
         progress = ((int(step_index or min_step) - min_step) / max(max_step - min_step, 1)) * 100
         left_label = "Week 1" if granularity == "Weekly" else "Day 1"
-        right_label = f"Week {max_step}" if granularity == "Weekly" else f"Day {max_step}"
+        right_label = "Today" if year == observed_max.year else (f"Week {max_step}" if granularity == "Weekly" else f"Day {max_step}")
         display_label = f"{period['label']} | {period['target_date'].strftime('%b %d')}"
         center_label = granularity
     st.markdown(f"""
@@ -2086,7 +2224,10 @@ def render_layer_panel() -> tuple:
         st.markdown(f"<div class='ww-control-note'>{FORECAST_CAVEAT}</div>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
-        year = int(st.slider("Observed year", min_value=2000, max_value=CURRENT_OBSERVATION_YEAR, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
+        observed_max = current_observed_date()
+        default_year = min(max(int(st.session_state.get("timeline_year", min(2024, observed_max.year))), 2000), observed_max.year)
+        st.session_state["timeline_year"] = default_year
+        year = int(st.slider("Observed year", min_value=2000, max_value=observed_max.year, value=default_year, step=1, key="timeline_year", help=f"Observed views stop at today ({observed_max.isoformat()}). Future dates live only in Forecast."))
         granularity = st.radio("Scrub by", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
         weather_source = st.radio("Weather", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
         if granularity != "Annual":
@@ -2722,26 +2863,55 @@ def render_evidence_board(year: int, period: dict, view_mode: str, layers: dict[
         render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
-def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> pdk.Deck:
+def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> pdk.Deck:
     terrain_df = prediction_df.copy()
     terrain_df["height"] = terrain_df["height_terrain"] if height_mode == "Terrain" else terrain_df["height_risk"]
     terrain_df["name"] = terrain_df["risk_label"]
     terrain_df["tooltip"] = ""
     terrain_df["deck_tooltip"] = terrain_df.apply(lambda row: f"{row['risk_label']} stress: {row['risk_score']}/100<br>{row['reason']}<br>Elevation {row['elevation']:.0f} m", axis=1)
-    layers = [pdk.Layer("ColumnLayer", data=terrain_df, get_position="[lon, lat]", get_elevation="height", get_fill_color="color", radius=120, coverage=0.82, pickable=True, auto_highlight=True)]
+    overlay_frames = build_3d_overlay_frames(prediction_df, bounds, signal, layers)
+    deck_layers = []
+    if not overlay_frames["canopy"].empty:
+        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["canopy"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.72, pickable=True, auto_highlight=True))
+    if not overlay_frames["water"].empty:
+        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["water"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=0.4, opacity=0.82, pickable=True, auto_highlight=True))
+    if not overlay_frames["stress"].empty:
+        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["stress"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.78, pickable=True, auto_highlight=True))
+    if not overlay_frames["moisture_paths"].empty:
+        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["moisture_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+    if not overlay_frames["rain_paths"].empty:
+        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["rain_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+    if not overlay_frames["wind_paths"].empty:
+        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["wind_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+    deck_layers.append(pdk.Layer("ColumnLayer", data=terrain_df, get_position="[lon, lat]", get_elevation="height", get_fill_color="color", radius=120, coverage=0.72, pickable=True, auto_highlight=True))
     if not sensor_df.empty:
         point_df = sensor_df.copy()
         point_df["deck_tooltip"] = ""
-        layers.append(pdk.Layer("ScatterplotLayer", data=point_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("ScatterplotLayer", data=point_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
     view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.7, pitch=58, bearing=-28)
-    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=layers, tooltip={"html": "<b>{name}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
+    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
 
 
-def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> None:
+def render_3d_overlay_summary(layers: dict[str, bool], signal: dict, height_mode: str) -> None:
+    moisture_label = "Visible" if any(layers.get(key) for key in ("moisture_flow", "soil_moisture", "water")) else "Off"
+    wind_label = "Visible" if layers.get("wind_flow") else "Off"
+    rain_label = "Visible" if layers.get("precipitation") and signal["precip_intensity"] > 0.01 else "No active rain"
+    st.markdown(f"""
+<div class="ww-3d-overlay-strip">
+  <div class="ww-3d-overlay"><span style="--dot:#ce6858;"><i></i>Stress veil</span><strong>Prototype surface</strong>Ground polygons and columns share the same explainable stress score.</div>
+  <div class="ww-3d-overlay"><span style="--dot:#2f9a98;"><i></i>Moisture</span><strong>{moisture_label}</strong>Water buffers and moisture corridors sit on the terrain instead of only appearing as points.</div>
+  <div class="ww-3d-overlay"><span style="--dot:#d6f2f9;"><i></i>Weather ribbons</span><strong>{wind_label} wind | {rain_label}</strong>Directional context comes from the selected DWD signal.</div>
+  <div class="ww-3d-overlay"><span style="--dot:#2f7d4f;"><i></i>Height mode</span><strong>{height_mode}</strong>Switch between vulnerability columns and terrain elevation.</div>
+</div>
+    """, unsafe_allow_html=True)
+
+
+def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> None:
     if prediction_df.empty:
         st.info("No 3D terrain samples are available for this area.")
         return
-    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode), use_container_width=True)
+    render_3d_overlay_summary(layers, signal, height_mode)
+    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers), use_container_width=True)
 
 
 def render_map_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], view_mode: str, signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
@@ -2800,14 +2970,14 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
-def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], signal: dict, readings: list[dict]) -> None:
+def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], signal: dict, readings: list[dict], layers: dict[str, bool]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     sensor_df = build_sensor_frame(year, period, readings, signal, prediction_df)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
-    render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers={"prediction": True}, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+    render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
-    render_map_heading(f"{period['label']} -> {projection_year}", [("Risk columns", "#ce6858"), ("Terrain", "#449666"), ("Stations", "#3478a9"), ("Soil probes", "#e3a72f"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
-    render_3d_view(prediction_df, sensor_df, center, height_mode)
+    render_map_heading(f"{period['label']} -> {projection_year}", [("Stress veil", "#ce6858"), ("Moisture corridors", "#2f9a98"), ("Canopy", "#449666"), ("Stations", "#3478a9"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
+    render_3d_view(prediction_df, sensor_df, center, height_mode, bounds, signal, layers)
     if prediction_note:
         st.caption(prediction_note)
     render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
@@ -2852,7 +3022,7 @@ def main() -> None:
         elif app_mode == "Predictions":
             render_predictions_mode(year, period, projection_year, scenario_name, basemap, layers, signal, readings, unavailable, aoi, area_name, center, bounds)
         else:
-            render_3d_mode(year, period, projection_year, scenario_name, height_mode, bounds, center, signal, readings)
+            render_3d_mode(year, period, projection_year, scenario_name, height_mode, bounds, center, signal, readings, layers)
 
 
 if __name__ == "__main__":
