@@ -80,6 +80,51 @@ SOIL_SENSOR_SITES = [
     {"name": "Watzmann slope", "zone": "Steep protection forest", "lat": 47.556, "lon": 12.923, "elevation": 1320, "seed": 11, "ph": 5.7, "carbon": 7.6},
 ]
 
+TREE_TWIN_ANCHORS = [
+    {
+        "id": "WW-T01",
+        "name": "Koenigssee lake-edge spruce",
+        "zone": "Lake-edge mixed forest",
+        "species": "Norway spruce, silver fir, beech",
+        "lat": 47.592,
+        "lon": 12.989,
+        "elevation": 610,
+        "crown": "dense crown, water-buffered edge",
+        "field_note": "Use as a low-stress reference anchor near recurring water.",
+        "bias": -8,
+        "moisture_bias": 10,
+        "scan_status": "photo baseline missing",
+    },
+    {
+        "id": "WW-T02",
+        "name": "Wimbachtal protection stand",
+        "zone": "Mixed mountain forest",
+        "species": "Beech, fir, spruce",
+        "lat": 47.569,
+        "lon": 12.914,
+        "elevation": 900,
+        "crown": "uneven crown layers, steep terrain exposure",
+        "field_note": "Good candidate for repeat field notes and canopy condition scoring.",
+        "bias": 6,
+        "moisture_bias": -2,
+        "scan_status": "field photo candidate",
+    },
+    {
+        "id": "WW-T03",
+        "name": "Watzmann slope sentinel",
+        "zone": "Steep protection forest",
+        "species": "Spruce, larch, mountain pine",
+        "lat": 47.556,
+        "lon": 12.923,
+        "elevation": 1320,
+        "crown": "exposed crown line, shallow-soil slope",
+        "field_note": "Prioritize after dry weeks if forecast stress remains elevated.",
+        "bias": 14,
+        "moisture_bias": -8,
+        "scan_status": "LiDAR/photogrammetry candidate",
+    },
+]
+
 LAYER_SECTIONS = [
     (
         "Weather canvas",
@@ -290,26 +335,29 @@ def inject_theme_css() -> None:
 .ww-plan-chip { color:#35513f; background:rgba(220,239,222,.54); border:1px dashed rgba(47,125,79,.24); border-radius:8px; padding:.46rem .5rem; font-size:.78rem; font-weight:730; }
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
-.ww-project-brief { border:1px solid rgba(26,46,35,.12); border-radius:8px; background:linear-gradient(135deg, rgba(255,255,255,.88), rgba(240,247,239,.72)); box-shadow:0 18px 58px rgba(35,53,42,.10); padding:.86rem; margin:.2rem 0 .92rem; }
-.ww-brief-top { display:flex; justify-content:space-between; align-items:flex-start; gap:.9rem; margin-bottom:.72rem; }
+.ww-project-brief { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:linear-gradient(135deg, rgba(255,255,255,.94), rgba(244,249,245,.76)); box-shadow:0 16px 54px rgba(35,53,42,.08); padding:1rem; margin:.22rem 0 .8rem; }
+.ww-brief-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:.78rem; }
 .ww-brief-kicker { color:var(--ww-green); font-size:.7rem; font-weight:820; text-transform:uppercase; letter-spacing:.06em; }
-.ww-brief-title { color:var(--ww-ink); font-size:1.12rem; line-height:1.18; font-weight:830; margin:.12rem 0 .18rem; }
+.ww-brief-title { color:var(--ww-ink); font-size:1.2rem; line-height:1.16; font-weight:840; margin:.12rem 0 .2rem; }
 .ww-brief-copy { color:#5c6a61; font-size:.85rem; line-height:1.38; max-width:820px; }
 .ww-brief-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.34rem; }
-.ww-brief-chip { color:#234435; border:1px solid rgba(47,125,79,.18); border-radius:999px; background:rgba(220,239,222,.62); padding:.28rem .48rem; font-size:.7rem; font-weight:780; white-space:nowrap; }
+.ww-brief-chip { color:#234435; border:1px solid rgba(47,125,79,.16); border-radius:999px; background:rgba(235,247,236,.72); padding:.28rem .5rem; font-size:.7rem; font-weight:780; white-space:nowrap; }
 .ww-brief-chip.warn { color:#63381c; border-color:rgba(227,167,47,.30); background:rgba(227,167,47,.16); }
-.ww-brief-grid { display:grid; grid-template-columns:1.15fr .95fr; gap:.72rem; }
-.ww-impact-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
-.ww-impact-card { border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(255,255,255,.72); padding:.68rem .72rem; min-height:95px; }
+.ww-brief-chip.watch { color:#6a3026; border-color:rgba(206,104,88,.28); background:rgba(206,104,88,.13); }
+.ww-brief-chip.monitor { color:#5a3e0e; border-color:rgba(227,167,47,.28); background:rgba(227,167,47,.15); }
+.ww-brief-chip.reference { color:#244c37; border-color:rgba(47,125,79,.20); background:rgba(220,239,222,.70); }
+.ww-brief-grid { display:grid; grid-template-columns:1.12fr .88fr; gap:.72rem; }
+.ww-impact-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.48rem; }
+.ww-impact-card { border:1px solid rgba(26,46,35,.07); border-radius:8px; background:rgba(255,255,255,.64); padding:.66rem .7rem; min-height:92px; box-shadow:inset 0 1px 0 rgba(255,255,255,.72); }
 .ww-impact-card span { display:block; color:#718076; font-size:.68rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:.22rem; }
 .ww-impact-card strong { display:block; color:var(--ww-ink); font-size:.98rem; line-height:1.18; margin-bottom:.28rem; }
 .ww-impact-card p { color:#5d6b62; font-size:.8rem; line-height:1.32; margin:0; }
-.ww-twin-card { position:relative; overflow:hidden; border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(18,32,24,.92); color:#eef6ef; min-height:100%; padding:.78rem .82rem; }
-.ww-twin-card:before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 24% 26%, rgba(90,171,111,.26), rgba(90,171,111,0) 34%), radial-gradient(circle at 82% 20%, rgba(52,120,169,.22), rgba(52,120,169,0) 34%); opacity:.9; }
+.ww-twin-card { position:relative; overflow:hidden; border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(18,32,24,.90); color:#eef6ef; min-height:100%; padding:.82rem .86rem; }
+.ww-twin-card:before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 22% 24%, rgba(100,177,119,.24), rgba(100,177,119,0) 36%), radial-gradient(circle at 82% 24%, rgba(52,120,169,.18), rgba(52,120,169,0) 36%), linear-gradient(150deg, rgba(255,255,255,.05), rgba(255,255,255,0) 45%); opacity:.92; }
 .ww-twin-content { position:relative; z-index:1; }
-.ww-tree-stand { position:relative; height:86px; margin:.38rem 0 .6rem; border-bottom:1px solid rgba(238,246,239,.22); }
-.ww-tree-node { position:absolute; bottom:0; width:2px; height:var(--h); left:var(--x); background:linear-gradient(180deg, rgba(198,230,194,.94), rgba(71,130,84,.72)); border-radius:999px; }
-.ww-tree-node:before { content:""; position:absolute; left:50%; top:-7px; width:var(--c); height:var(--c); transform:translateX(-50%); border-radius:999px; background:radial-gradient(circle, rgba(186,224,170,.95), rgba(68,150,102,.70)); box-shadow:0 0 18px rgba(108,194,133,.26); }
+.ww-tree-stand { position:relative; height:86px; margin:.38rem 0 .6rem; border-bottom:1px solid rgba(238,246,239,.18); }
+.ww-tree-node { position:absolute; bottom:0; width:1.5px; height:var(--h); left:var(--x); background:linear-gradient(180deg, rgba(211,238,206,.92), rgba(82,145,93,.70)); border-radius:999px; }
+.ww-tree-node:before { content:""; position:absolute; left:50%; top:-7px; width:var(--c); height:var(--c); transform:translateX(-50%); border-radius:999px; background:radial-gradient(circle, rgba(205,235,191,.92), rgba(75,153,102,.68)); box-shadow:0 0 16px rgba(108,194,133,.22); }
 .ww-twin-card h3 { position:relative; z-index:1; margin:0 0 .25rem; font-size:.98rem; line-height:1.18; color:#ffffff; }
 .ww-twin-card p { position:relative; z-index:1; margin:0; color:#c9d8cd; font-size:.78rem; line-height:1.35; }
 .ww-twin-steps { position:relative; z-index:1; display:grid; gap:.34rem; margin-top:.62rem; }
@@ -317,6 +365,35 @@ def inject_theme_css() -> None:
 .ww-twin-step em { color:#95bca1; font-style:normal; font-weight:780; white-space:nowrap; }
 .ww-brief-sources { display:flex; flex-wrap:wrap; gap:.34rem; margin-top:.68rem; }
 .ww-source-chip { color:#506057; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.09); border-radius:999px; padding:.26rem .44rem; font-size:.68rem; font-weight:760; }
+.ww-tree-register { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:rgba(255,255,255,.82); box-shadow:0 16px 54px rgba(35,53,42,.08); padding:1rem; margin:.2rem 0 .95rem; }
+.ww-tree-register-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:.6rem; }
+.ww-tree-register-title { color:var(--ww-ink); font-size:1.04rem; line-height:1.2; font-weight:840; margin:.1rem 0 .12rem; }
+.ww-tree-register-copy { color:#617067; font-size:.84rem; line-height:1.38; max-width:780px; }
+.ww-tree-register-grid { display:grid; grid-template-columns:.85fr 1.15fr; gap:.72rem; margin-top:.62rem; }
+.ww-tree-profile { position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(26,46,35,.08); background:linear-gradient(160deg, rgba(19,34,26,.94), rgba(31,54,40,.88)); color:#eef6ef; padding:.86rem; min-height:300px; }
+.ww-tree-profile:before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 28% 24%, rgba(91,177,111,.26), rgba(91,177,111,0) 35%), radial-gradient(circle at 74% 14%, rgba(61,137,168,.18), rgba(61,137,168,0) 34%); }
+.ww-tree-profile > * { position:relative; z-index:1; }
+.ww-tree-profile h3 { margin:0 0 .18rem; color:#fff; font-size:1rem; line-height:1.2; }
+.ww-tree-profile p { margin:0; color:#ccdbd0; font-size:.8rem; line-height:1.38; }
+.ww-tree-profile-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.36rem; margin:.66rem 0; }
+.ww-tree-profile-meta span { border:1px solid rgba(238,246,239,.13); border-radius:8px; padding:.42rem .46rem; color:#eaf4ed; font-size:.76rem; }
+.ww-tree-profile-meta em { display:block; color:#92b89e; font-style:normal; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.12rem; }
+.ww-tree-silhouette { position:relative; height:116px; margin:.58rem 0 .72rem; border-bottom:1px solid rgba(238,246,239,.18); }
+.ww-tree-silhouette i { position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:3px; height:76px; border-radius:999px; background:linear-gradient(180deg,#d8ead2,#6ea86e); }
+.ww-tree-silhouette i:before, .ww-tree-silhouette i:after { content:""; position:absolute; left:50%; transform:translateX(-50%); border-radius:999px; background:radial-gradient(circle,#d8efc9,#5aa76d 62%, rgba(90,167,109,0) 70%); }
+.ww-tree-silhouette i:before { top:-34px; width:86px; height:78px; opacity:.86; }
+.ww-tree-silhouette i:after { top:-10px; width:122px; height:76px; opacity:.46; }
+.ww-tree-detail { display:grid; gap:.42rem; }
+.ww-tree-detail-row { display:flex; justify-content:space-between; gap:.7rem; border-bottom:1px solid rgba(26,46,35,.08); padding:.46rem 0; color:#526057; font-size:.8rem; }
+.ww-tree-detail-row strong { color:var(--ww-ink); text-align:right; }
+.ww-memory-list { display:grid; gap:.42rem; margin-top:.1rem; }
+.ww-memory-item { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.68); padding:.58rem .64rem; color:#5c6a61; font-size:.8rem; line-height:1.34; }
+.ww-memory-item span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.12rem; }
+.ww-memory-item strong { display:block; color:var(--ww-ink); margin-bottom:.14rem; }
+.ww-gsplat-plan { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.46rem; margin-top:.48rem; }
+.ww-gsplat-step { border:1px solid rgba(52,120,169,.13); border-radius:8px; background:rgba(235,244,248,.72); padding:.58rem .62rem; color:#47616d; font-size:.78rem; line-height:1.34; }
+.ww-gsplat-step span { display:block; color:#3478a9; font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.16rem; }
+.ww-gsplat-step strong { display:block; color:#1f4f63; margin-bottom:.12rem; }
 .ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(43,95,92,.13); border-radius:8px; min-height:50px; margin:.18rem 0 .56rem; background:linear-gradient(135deg, rgba(247,251,248,.94), rgba(235,245,245,.70)); box-shadow:0 10px 30px rgba(35,53,42,.06); }
 .ww-motion-proof:before { content:""; position:absolute; left:-24%; right:-24%; top:0; height:100%; background:radial-gradient(ellipse at 16% 38%, rgba(255,255,255,.76), rgba(197,217,219,.22) 34%, rgba(197,217,219,0) 58%), repeating-linear-gradient(104deg, rgba(44,116,139,0) 0 38px, rgba(44,116,139,.20) 38px 40px, rgba(255,255,255,.50) 40px 41px, rgba(44,116,139,0) 41px 82px); animation:ww-proof-sweep 7.8s linear infinite; opacity:.62; }
 .ww-motion-proof:after { content:""; position:absolute; left:-18%; bottom:10px; width:42%; height:10px; border-radius:999px; background:linear-gradient(90deg, rgba(15,92,124,0), rgba(15,92,124,.42), rgba(255,255,255,.62), rgba(15,92,124,0)); filter:blur(.2px); animation:ww-proof-cloud 6.2s ease-in-out infinite; opacity:.54; }
@@ -339,7 +416,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -1200,7 +1277,7 @@ def screen_motion_vector(angle_deg: float, distance_px: float) -> tuple[float, f
 
 
 def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
-    active_motion = any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow"))
+    active_motion = any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow", "moisture_flow"))
     if not active_motion:
         return
 
@@ -1220,9 +1297,11 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
             "cloud": bool(layers.get("cloud_veil")),
             "wind": bool(layers.get("wind_flow")),
             "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.01),
+            "moisture": bool(layers.get("moisture_flow")),
             "angle": round(css_angle, 1),
             "wind_strength": round(wind, 2),
             "precip_intensity": round(signal["precip_intensity"], 2),
+            "moisture_strength": round(signal["moisture"], 2),
             "seed": round(seed, 3),
         },
     }
@@ -1245,16 +1324,20 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 .ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:normal; }
 .ww-motion-badge { position:absolute; right:12px; top:12px; z-index:3; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
 .ww-motion-badge i { width:6px; height:6px; border-radius:99px; background:#2f9ca2; box-shadow:0 0 0 0 rgba(47,156,162,.34); animation:ww-motion-dot 2.2s ease-out infinite; }
-.ww-motion-cloud-shelf { position:absolute; left:-22%; top:3%; width:144%; height:43%; opacity:.22; filter:blur(1.6px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.44), rgba(211,225,226,.18) 28%, rgba(211,225,226,0) 52%), radial-gradient(ellipse at 52% 36%, rgba(255,255,255,.38), rgba(192,214,218,.18) 32%, rgba(192,214,218,0) 58%), radial-gradient(ellipse at 82% 54%, rgba(255,255,255,.40), rgba(202,219,221,.16) 32%, rgba(202,219,221,0) 60%); animation:ww-viewport-cloud 26s ease-in-out infinite alternate; }
-.ww-wind-streamfield { position:absolute; inset:-6%; width:112%; height:112%; opacity:var(--wind-alpha); transform:rotate(var(--angle)); transform-origin:center; filter:drop-shadow(0 0 2px rgba(255,255,255,.28)); mix-blend-mode:screen; }
-.ww-wind-streamfield path { fill:none; stroke:rgba(226,248,255,.56); stroke-width:.56; stroke-linecap:round; stroke-dasharray:10 18; stroke-dashoffset:0; vector-effect:non-scaling-stroke; animation:ww-streamline-drift var(--speed) linear infinite; animation-delay:var(--delay); }
-.ww-wind-streamfield path:nth-child(3n) { stroke:rgba(190,234,248,.42); stroke-width:.46; stroke-dasharray:7 19; }
-.ww-wind-streamfield path:nth-child(4n) { stroke:rgba(255,255,255,.48); stroke-width:.38; stroke-dasharray:5 17; }
-.ww-wind-streamfield path:nth-child(7n) { opacity:.62; }
-.ww-precip-radar { position:absolute; inset:-18%; opacity:var(--rain-alpha); filter:blur(10px) saturate(1.25); mix-blend-mode:multiply; background:radial-gradient(ellipse at 66% 58%, rgba(35,100,255,.58) 0 18%, rgba(35,100,255,.28) 28%, rgba(35,100,255,0) 48%), radial-gradient(ellipse at 42% 72%, rgba(107,96,245,.44) 0 15%, rgba(107,96,245,.22) 26%, rgba(107,96,245,0) 47%), radial-gradient(ellipse at 80% 72%, rgba(183,82,216,.36) 0 12%, rgba(183,82,216,.18) 24%, rgba(183,82,216,0) 42%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.32) 0 14%, rgba(91,180,255,.12) 28%, rgba(91,180,255,0) 45%); animation:ww-radar-drift 18s ease-in-out infinite alternate; }
-.ww-precip-radar:before { content:""; position:absolute; inset:-4%; opacity:.72; background:radial-gradient(ellipse at 58% 46%, rgba(255,255,255,.88) 0 5%, rgba(255,255,255,.30) 9%, rgba(255,255,255,0) 18%), radial-gradient(ellipse at 46% 62%, rgba(255,255,255,.60) 0 4%, rgba(255,255,255,0) 14%), radial-gradient(ellipse at 72% 70%, rgba(255,255,255,.46) 0 4%, rgba(255,255,255,0) 13%); animation:ww-radar-holes 11s ease-in-out infinite alternate; }
-.ww-precip-radar:after { content:""; position:absolute; inset:0; opacity:.52; background:radial-gradient(ellipse at 68% 58%, rgba(31,91,235,.42) 0 12%, rgba(31,91,235,0) 30%), radial-gradient(ellipse at 78% 68%, rgba(177,73,205,.34) 0 10%, rgba(177,73,205,0) 26%); animation:ww-radar-pulse 8.5s ease-in-out infinite alternate; }
-.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.07); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.68), rgba(209,224,224,.36) 47%, rgba(154,181,187,.13) 68%, rgba(154,181,187,0) 80%); filter:blur(1px); box-shadow:0 10px 32px rgba(52,120,169,.08); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-cloud-shelf { position:absolute; left:-24%; top:2%; width:148%; height:42%; opacity:.18; filter:blur(2.4px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.46), rgba(211,225,226,.14) 30%, rgba(211,225,226,0) 58%), radial-gradient(ellipse at 54% 36%, rgba(255,255,255,.36), rgba(192,214,218,.13) 34%, rgba(192,214,218,0) 62%), radial-gradient(ellipse at 83% 54%, rgba(255,255,255,.38), rgba(202,219,221,.12) 34%, rgba(202,219,221,0) 64%); animation:ww-viewport-cloud 28s ease-in-out infinite alternate; }
+.ww-wind-streamfield, .ww-moisture-streamfield { position:absolute; inset:-7%; width:114%; height:114%; transform:rotate(var(--angle)); transform-origin:center; mix-blend-mode:screen; }
+.ww-wind-streamfield { opacity:var(--wind-alpha); filter:drop-shadow(0 0 1px rgba(255,255,255,.22)); }
+.ww-wind-streamfield path { fill:none; stroke:rgba(228,250,255,.50); stroke-width:.34; stroke-linecap:round; stroke-dasharray:7 22; stroke-dashoffset:0; vector-effect:non-scaling-stroke; animation:ww-streamline-drift var(--speed) linear infinite; animation-delay:var(--delay); }
+.ww-wind-streamfield path:nth-child(3n) { stroke:rgba(190,234,248,.34); stroke-width:.26; stroke-dasharray:5 24; }
+.ww-wind-streamfield path:nth-child(4n) { stroke:rgba(255,255,255,.42); stroke-width:.22; stroke-dasharray:4 22; }
+.ww-wind-streamfield path:nth-child(7n) { opacity:.54; }
+.ww-moisture-streamfield { opacity:var(--moisture-alpha); transform:rotate(calc(var(--angle) - 24deg)); filter:blur(.15px); }
+.ww-moisture-streamfield path { fill:none; stroke:rgba(96,206,196,.34); stroke-width:.42; stroke-linecap:round; stroke-dasharray:2 20; vector-effect:non-scaling-stroke; animation:ww-moisture-drift var(--speed) ease-in-out infinite; animation-delay:var(--delay); }
+.ww-moisture-streamfield path:nth-child(3n) { stroke:rgba(180,231,220,.30); stroke-width:.28; stroke-dasharray:1 17; }
+.ww-precip-radar { position:absolute; inset:-22%; opacity:var(--rain-alpha); filter:blur(18px) saturate(1.15); mix-blend-mode:multiply; background:radial-gradient(ellipse at 64% 58%, rgba(32,95,255,.42) 0 10%, rgba(64,128,255,.22) 22%, rgba(90,180,255,.08) 40%, rgba(90,180,255,0) 62%), radial-gradient(ellipse at 44% 72%, rgba(93,108,245,.32) 0 9%, rgba(98,138,245,.16) 22%, rgba(111,168,245,.06) 42%, rgba(111,168,245,0) 64%), radial-gradient(ellipse at 78% 70%, rgba(180,82,216,.22) 0 7%, rgba(183,82,216,.11) 20%, rgba(183,82,216,0) 48%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.22) 0 10%, rgba(91,180,255,.08) 28%, rgba(91,180,255,0) 54%); animation:ww-radar-drift 20s ease-in-out infinite alternate; }
+.ww-precip-radar:before { content:""; position:absolute; inset:-4%; opacity:.70; background:radial-gradient(ellipse at 58% 46%, rgba(255,255,255,.90) 0 4%, rgba(255,255,255,.26) 8%, rgba(255,255,255,0) 20%), radial-gradient(ellipse at 46% 62%, rgba(255,255,255,.54) 0 3%, rgba(255,255,255,0) 16%), radial-gradient(ellipse at 72% 70%, rgba(255,255,255,.42) 0 3%, rgba(255,255,255,0) 15%); animation:ww-radar-holes 12s ease-in-out infinite alternate; }
+.ww-precip-radar:after { content:""; position:absolute; inset:0; opacity:.40; background:radial-gradient(ellipse at 68% 58%, rgba(31,91,235,.30) 0 8%, rgba(31,91,235,0) 32%), radial-gradient(ellipse at 78% 68%, rgba(177,73,205,.22) 0 7%, rgba(177,73,205,0) 30%); animation:ww-radar-pulse 9.5s ease-in-out infinite alternate; }
+.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.05); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.62), rgba(209,224,224,.28) 48%, rgba(154,181,187,.10) 70%, rgba(154,181,187,0) 82%); filter:blur(1.4px); box-shadow:0 10px 28px rgba(52,120,169,.06); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
 @keyframes ww-cloud-drift {
   from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
   to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.10); }
@@ -1297,6 +1380,11 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   76% { opacity:.72; }
   to { stroke-dashoffset:-34; opacity:.16; }
 }
+@keyframes ww-moisture-drift {
+  from { stroke-dashoffset:20; opacity:.08; transform:translateX(-8px); }
+  35% { opacity:.72; }
+  to { stroke-dashoffset:-26; opacity:.12; transform:translateX(12px); }
+}
 @keyframes ww-radar-drift {
   from { transform:translate3d(-3%,1%,0) scale(1); }
   to { transform:translate3d(4%,-2%,0) scale(1.035); }
@@ -1334,8 +1422,9 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const nodes = [];
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
-  stage.style.setProperty("--wind-alpha", (0.38 + payload.stage.wind_strength * 0.20).toFixed(2));
-  stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.62).toFixed(2));
+  stage.style.setProperty("--wind-alpha", (0.24 + payload.stage.wind_strength * 0.16).toFixed(2));
+  stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.46).toFixed(2));
+  stage.style.setProperty("--moisture-alpha", (0.12 + payload.stage.moisture_strength * 0.22).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
   function addWindStreamfield() {
@@ -1345,14 +1434,14 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     svg.setAttribute("viewBox", "0 0 100 100");
     svg.setAttribute("preserveAspectRatio", "none");
     svg.style.setProperty("--angle", payload.stage.angle + "deg");
-    const count = Math.round(44 + payload.stage.wind_strength * 24);
+    const count = Math.round(58 + payload.stage.wind_strength * 28);
     for (let idx = 0; idx < count; idx += 1) {
       const col = idx % 8;
       const row = Math.floor(idx / 8);
       const x = -14 + col * 16 + ((idx * 13 + payload.stage.seed * 11) % 7);
       const y = -4 + row * 12 + ((idx * 17 + payload.stage.seed * 9) % 8);
-      const sweep = 24 + (idx % 5) * 5 + payload.stage.wind_strength * 9;
-      const bend = ((idx % 6) - 2.5) * 1.8 + Math.sin(idx + payload.stage.seed) * 4.5;
+      const sweep = 22 + (idx % 5) * 4 + payload.stage.wind_strength * 8;
+      const bend = ((idx % 6) - 2.5) * 1.4 + Math.sin(idx + payload.stage.seed) * 3.4;
       const d = [
         "M", x.toFixed(2), y.toFixed(2),
         "C", (x + sweep * .28).toFixed(2), (y - bend).toFixed(2),
@@ -1361,8 +1450,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
       ].join(" ");
       const path = document.createElementNS(svgNS, "path");
       path.setAttribute("d", d);
-      path.style.setProperty("--speed", (9.4 - payload.stage.wind_strength * 2.1 + (idx % 7) * .38).toFixed(2) + "s");
-      path.style.setProperty("--delay", (-idx * .16).toFixed(2) + "s");
+      path.style.setProperty("--speed", (10.8 - payload.stage.wind_strength * 2.4 + (idx % 7) * .42).toFixed(2) + "s");
+      path.style.setProperty("--delay", (-idx * .14).toFixed(2) + "s");
       svg.appendChild(path);
     }
     const curls = [[20,22,8], [74,24,6], [34,72,7], [82,78,9]];
@@ -1384,11 +1473,43 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     });
     stage.appendChild(svg);
   }
+  function addMoistureStreamfield() {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("class", "ww-moisture-streamfield");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.style.setProperty("--angle", payload.stage.angle + "deg");
+    const count = Math.round(20 + payload.stage.moisture_strength * 18);
+    for (let idx = 0; idx < count; idx += 1) {
+      const col = idx % 7;
+      const row = Math.floor(idx / 7);
+      const x = -8 + col * 18 + ((idx * 11 + payload.stage.seed * 13) % 7);
+      const y = 8 + row * 15 + ((idx * 19 + payload.stage.seed * 7) % 10);
+      const sweep = 28 + (idx % 4) * 6;
+      const bend = Math.sin(idx * .9 + payload.stage.seed) * 6.5;
+      const d = [
+        "M", x.toFixed(2), y.toFixed(2),
+        "C", (x + sweep * .22).toFixed(2), (y + bend).toFixed(2),
+        (x + sweep * .64).toFixed(2), (y - bend * .42).toFixed(2),
+        (x + sweep).toFixed(2), (y + bend * .2).toFixed(2)
+      ].join(" ");
+      const path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", d);
+      path.style.setProperty("--speed", (13.5 + (idx % 6) * .9).toFixed(2) + "s");
+      path.style.setProperty("--delay", (-idx * .32).toFixed(2) + "s");
+      svg.appendChild(path);
+    }
+    stage.appendChild(svg);
+  }
   if (payload.stage.cloud) {
     L.DomUtil.create("div", "ww-motion-cloud-shelf", stage);
   }
   if (payload.stage.rain) {
     L.DomUtil.create("div", "ww-precip-radar", stage);
+  }
+  if (payload.stage.moisture) {
+    addMoistureStreamfield();
   }
   if (payload.stage.wind) {
     addWindStreamfield();
@@ -1437,52 +1558,54 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
 
     if layers.get("cloud_veil"):
         group = folium.FeatureGroup(name="Cloud and fog veil", show=True)
-        cloud_opacity = 0.07 + signal["cloud"] * 0.12
-        for idx in range(6):
+        cloud_opacity = 0.045 + signal["cloud"] * 0.075
+        for idx in range(8):
             center_lat = min_lat + lat_span * (0.12 + ((idx * 0.19 + seed * 0.07) % 0.76))
             center_lon = min_lon + lon_span * (0.10 + ((idx * 0.23 + seed * 0.05) % 0.78))
-            points = blob_points(center_lat, center_lon, lat_span * (0.11 + idx % 3 * 0.018), lon_span * (0.13 + idx % 2 * 0.026), seed + idx)
-            folium.Polygon(points, color="#f4f7f2", weight=1, opacity=cloud_opacity * 0.45, fill=True, fill_color="#f4f7f2", fill_opacity=cloud_opacity, tooltip="Cloud / fog veil").add_to(group)
+            points = blob_points(center_lat, center_lon, lat_span * (0.10 + idx % 3 * 0.016), lon_span * (0.12 + idx % 2 * 0.022), seed + idx)
+            folium.Polygon(points, color="#f8fbf8", weight=0.55, opacity=cloud_opacity * 0.34, fill=True, fill_color="#f8fbf8", fill_opacity=cloud_opacity, tooltip="Cloud / fog veil").add_to(group)
         group.add_to(m)
 
     if layers.get("precipitation") and signal["precip_intensity"] > 0.01:
         group = folium.FeatureGroup(name="Precipitation field", show=True)
-        rain_opacity = clamp(signal["precip_intensity"] * 0.22, 0.0, 0.24)
-        radar_colors = ("#4b8cff", "#6977f2", "#a06fe0")
-        for idx in range(7):
+        rain_opacity = clamp(signal["precip_intensity"] * 0.15, 0.0, 0.18)
+        radar_colors = ("#6fb7ff", "#4f8dff", "#6a6fee", "#b46dd9")
+        for idx in range(11):
             center_lat = min_lat + lat_span * (0.09 + ((idx * 0.17 + seed * 0.11) % 0.82))
             center_lon = min_lon + lon_span * (0.08 + ((idx * 0.29 + seed * 0.09) % 0.82))
-            points = blob_points(center_lat, center_lon, lat_span * (0.075 + signal["precip_intensity"] * 0.055), lon_span * (0.09 + signal["precip_intensity"] * 0.06), seed + idx * 1.7)
-            cell_opacity = rain_opacity * (1.0 - (idx % 4) * 0.14)
+            scale = 0.045 + signal["precip_intensity"] * 0.055 + (idx % 3) * 0.01
+            points = blob_points(center_lat, center_lon, lat_span * scale, lon_span * (scale * 1.28), seed + idx * 1.7)
+            cell_opacity = rain_opacity * (1.0 - (idx % 5) * 0.10)
             folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=cell_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
-        for idx in range(6):
+        for idx in range(8):
             start_lat = min_lat + lat_span * (0.06 + idx * 0.11)
             start_lon = min_lon + lon_span * (0.08 + ((idx * 0.13 + seed) % 0.78))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#9ed6f1", weight=0.55, opacity=signal["precip_intensity"] * 0.12, dash_array="2 18", tooltip="Rain direction").add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#a9dff3", weight=0.34, opacity=signal["precip_intensity"] * 0.08, dash_array="1 22", tooltip="Rain direction").add_to(group)
         group.add_to(m)
 
     if layers.get("wind_flow"):
         group = folium.FeatureGroup(name="Wind streamlines", show=True)
-        wind_opacity = 0.10 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.16
-        for idx in range(14):
-            start_lat = min_lat + lat_span * (0.05 + idx * 0.068)
+        wind_opacity = 0.07 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.11
+        for idx in range(22):
+            start_lat = min_lat + lat_span * (0.035 + idx * 0.044)
             start_lon = min_lon + lon_span * (0.02 + ((idx * 0.19 + seed * 0.3) % 0.96))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#edfaff", weight=1.1, opacity=wind_opacity, dash_array="5 18", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg").add_to(group)
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8), color="#58aeca", weight=0.45, opacity=wind_opacity * 0.55, dash_array="5 18").add_to(group)
+            points = flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8)
+            folium.PolyLine(points, color="#f2fcff", weight=0.62, opacity=wind_opacity, dash_array="4 24", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg").add_to(group)
+            folium.PolyLine(points, color="#77c2d3", weight=0.22, opacity=wind_opacity * 0.50, dash_array="4 24").add_to(group)
         group.add_to(m)
 
     if layers.get("moisture_flow"):
         group = folium.FeatureGroup(name="Moisture flow", show=True)
-        moisture_opacity = 0.035 + signal["moisture"] * 0.13
-        for idx in range(10):
+        moisture_opacity = 0.03 + signal["moisture"] * 0.095
+        for idx in range(16):
             start_lat = min_lat + lat_span * (0.16 + ((idx * 0.085 + seed * 0.05) % 0.68))
-            start_lon = min_lon + lon_span * (0.06 + idx * 0.085)
+            start_lon = min_lon + lon_span * (0.05 + idx * 0.057)
             points = flowline_points(start_lat, start_lon, 24 + idx * 3, lat_span * 0.52, lon_span * 0.46, seed + idx)
-            folium.PolyLine(points, color="#a4e0dc", weight=1.35, opacity=moisture_opacity, dash_array="4 19", tooltip="Moisture flow").add_to(group)
-            folium.PolyLine(points, color="#2f8f91", weight=0.35, opacity=moisture_opacity * 0.72, dash_array="4 19").add_to(group)
+            folium.PolyLine(points, color="#b8e9df", weight=0.72, opacity=moisture_opacity, dash_array="2 23", tooltip="Moisture flow").add_to(group)
+            folium.PolyLine(points, color="#3ba3a0", weight=0.20, opacity=moisture_opacity * 0.68, dash_array="2 23").add_to(group)
         for lake_lat, lake_lon in ((47.592, 12.989), (47.606, 12.849)):
             points = blob_points(lake_lat, lake_lon, lat_span * 0.085, lon_span * 0.07, seed)
-            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 1.25, tooltip="Water-buffer moisture zone").add_to(group)
+            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 0.90, tooltip="Water-buffer moisture zone").add_to(group)
         group.add_to(m)
 
     if layers.get("canopy_stress"):
@@ -1902,7 +2025,7 @@ def render_environment_strip(signal: dict) -> None:
 
 
 def render_weather_motion_proof(layers: dict[str, bool], signal: dict) -> None:
-    if not any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow")):
+    if not any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow", "moisture_flow")):
         return
     active_parts = []
     if layers.get("wind_flow"):
@@ -1911,6 +2034,8 @@ def render_weather_motion_proof(layers: dict[str, bool], signal: dict) -> None:
         active_parts.append(f"rain {format_number(signal['precipitation'], ' mm')}")
     if layers.get("cloud_veil"):
         active_parts.append(f"cloud {round(signal['cloud'] * 100)}%")
+    if layers.get("moisture_flow"):
+        active_parts.append(f"moisture {round(signal['moisture'] * 100)}%")
     st.markdown(f"""
 <div class="ww-motion-proof">
   <div class="ww-motion-proof-content">
@@ -2037,6 +2162,103 @@ def render_project_impact_brief(area_name: str, app_mode: str, period: dict, sig
   </div>
 </div>
     """, unsafe_allow_html=True)
+
+
+def tree_status(score: float) -> str:
+    if score >= 68:
+        return "watch closely"
+    if score >= 48:
+        return "monitor"
+    return "reference"
+
+
+def build_tree_twin_records(signal: dict, prediction_df: Optional[pd.DataFrame], readings: list[dict]) -> list[dict]:
+    if prediction_df is not None and not prediction_df.empty:
+        base_score = round(float(prediction_df["risk_score"].mean()), 1)
+        top = prediction_df.nlargest(1, "risk_score").iloc[0]
+        evidence_note = f"Forecast context: {top['reason']}"
+    else:
+        base_score = round(signal["stress"] * 100, 1)
+        evidence_note = f"Live context from {signal.get('source', 'selected layers')}"
+    nearest_station = readings[0]["name"] if readings else "seasonal fallback"
+    records = []
+    for anchor in TREE_TWIN_ANCHORS:
+        stress_score = round(clamp(base_score + anchor["bias"], 1, 99), 1)
+        moisture_score = round(clamp(signal["moisture"] * 100 + anchor["moisture_bias"], 1, 99), 0)
+        records.append({
+            **anchor,
+            "status": tree_status(stress_score),
+            "stress_score": stress_score,
+            "moisture_score": moisture_score,
+            "nearest_station": nearest_station,
+            "evidence_note": evidence_note,
+        })
+    return records
+
+
+def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signal: dict, readings: list[dict], prediction_df: Optional[pd.DataFrame] = None) -> None:
+    records = build_tree_twin_records(signal, prediction_df, readings)
+    if not records:
+        return
+    select_key = f"tree_twin_anchor_{app_mode.lower().replace(' ', '_')}"
+    selected = st.selectbox("Tree twin anchor", records, format_func=lambda item: f"{item['id']} | {item['name']}", key=select_key)
+    status_class = "watch" if selected["status"] == "watch closely" else "monitor" if selected["status"] == "monitor" else "reference"
+    st.markdown(f"""
+<div class="ww-tree-register">
+  <div class="ww-tree-register-head">
+    <div>
+      <div class="ww-brief-kicker">Tree digital twin prototype</div>
+      <div class="ww-tree-register-title">Individual-tree memory layer</div>
+      <div class="ww-tree-register-copy">A first register for connecting canopy, weather, terrain, field notes, and later scan assets to selected tree anchors in {area_name}.</div>
+    </div>
+    <span class="ww-brief-chip {status_class}">{selected['status']}</span>
+  </div>
+  <div class="ww-tree-register-grid">
+    <div class="ww-tree-profile">
+      <div class="ww-tree-silhouette"><i></i></div>
+      <h3>{selected['name']}</h3>
+      <p>{selected['zone']} | {selected['lat']:.3f}, {selected['lon']:.3f}</p>
+      <div class="ww-tree-profile-meta">
+        <span><em>Stress</em>{selected['stress_score']}/100</span>
+        <span><em>Moisture</em>{selected['moisture_score']:.0f}%</span>
+        <span><em>Scan</em>{selected['scan_status']}</span>
+      </div>
+    </div>
+    <div class="ww-tree-detail">
+      <div class="ww-tree-detail-row"><span>Species mix</span><strong>{selected['species']}</strong></div>
+      <div class="ww-tree-detail-row"><span>Crown signal</span><strong>{selected['crown']}</strong></div>
+      <div class="ww-tree-detail-row"><span>Elevation</span><strong>{selected['elevation']} m</strong></div>
+      <div class="ww-tree-detail-row"><span>Nearest weather context</span><strong>{selected['nearest_station']}</strong></div>
+      <div class="ww-tree-detail-row"><span>Evidence note</span><strong>{selected['evidence_note']}</strong></div>
+      <div class="ww-tree-detail-row"><span>Next field note</span><strong>{selected['field_note']}</strong></div>
+    </div>
+  </div>
+</div>
+    """, unsafe_allow_html=True)
+
+    memory_tab, evidence_tab, capture_tab = st.tabs(["Tree memory", "Evidence", "3D capture"])
+    with memory_tab:
+        st.markdown(f"""
+<div class="ww-memory-list">
+  <div class="ww-memory-item"><span>Live now</span><strong>{period['label']}</strong><p>Public Earth Engine layers, DWD weather context, and prototype soil probes describe the surrounding stand.</p></div>
+  <div class="ww-memory-item"><span>Next field visit</span><strong>{selected['id']}</strong><p>Capture crown condition, trunk/canopy photos, species confirmation, and any visible drought, pest, or trail-impact notes.</p></div>
+  <div class="ww-memory-item"><span>Feedback loop</span><strong>Validation queue</strong><p>Observed tree health can later tune the prototype stress score instead of treating the current model as a final answer.</p></div>
+</div>
+        """, unsafe_allow_html=True)
+    with evidence_tab:
+        st.dataframe(
+            pd.DataFrame(records)[["id", "name", "zone", "species", "stress_score", "moisture_score", "status", "scan_status", "nearest_station"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+    with capture_tab:
+        st.markdown("""
+<div class="ww-gsplat-plan">
+  <div class="ww-gsplat-step"><span>Demo lane first</span><strong>Use a small sample scan or placeholder scene to prove the interaction model without new cloud cost.</strong></div>
+  <div class="ww-gsplat-step"><span>Field capture later</span><strong>Attach phone video, photogrammetry, or LiDAR assets to stable tree IDs after the register is validated.</strong></div>
+  <div class="ww-gsplat-step"><span>No-cost path</span><strong>Keep prototype assets local or repository-scale until the project explicitly changes its cost constraint.</strong></div>
+</div>
+        """, unsafe_allow_html=True)
 
 
 def render_prediction_summary(prediction_df: pd.DataFrame, climate_signal: dict, projection_year: int, scenario_name: str) -> None:
@@ -2221,6 +2443,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     map_state = st_folium(m, width=None, height=780)
     render_map_selection(map_state)
     render_project_impact_brief(area_name, app_mode="Map", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+    render_tree_twin_register(area_name, app_mode="Map", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
     captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
@@ -2233,6 +2456,7 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
     render_project_impact_brief(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+    render_tree_twin_register(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
     forecast_label = f"Today -> {projection_year}"
     map_layers = dict(layers)
     map_layers["prediction"] = False
@@ -2258,6 +2482,7 @@ def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name:
     sensor_df = build_sensor_frame(year, period, readings)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
     render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers={"prediction": True}, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+    render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
     render_map_heading(f"{period['label']} -> {projection_year}", [("Risk columns", "#ce6858"), ("Terrain", "#449666"), ("Stations", "#3478a9"), ("Soil probes", "#e3a72f")], "Berchtesgaden National Park", title="3D forest view")
     render_3d_view(prediction_df, sensor_df, center, height_mode)
     if prediction_note:
