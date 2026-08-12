@@ -437,6 +437,11 @@ def inject_theme_css() -> None:
 .ww-tree-driver { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem; min-height:96px; color:#59675e; font-size:.8rem; line-height:1.34; }
 .ww-tree-driver span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.12rem; }
 .ww-tree-driver strong { display:block; color:var(--ww-ink); font-size:.92rem; line-height:1.18; margin-bottom:.18rem; }
+.ww-field-card-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.46rem; margin:.38rem 0 .58rem; }
+.ww-field-card { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.70); padding:.62rem .66rem; color:#59675e; font-size:.8rem; line-height:1.34; min-height:96px; }
+.ww-field-card span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.14rem; }
+.ww-field-card strong { display:block; color:var(--ww-ink); font-size:.94rem; line-height:1.18; margin-bottom:.18rem; }
+.ww-local-export-note { border:1px solid rgba(52,120,169,.14); border-radius:8px; background:rgba(235,244,248,.58); color:#42606d; padding:.52rem .62rem; margin:.46rem 0; font-size:.78rem; line-height:1.34; }
 .ww-field-queue { display:grid; gap:.46rem; margin-top:.35rem; }
 .ww-field-task { display:grid; grid-template-columns:104px 1fr; gap:.56rem; align-items:start; border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem; color:#5e6c63; font-size:.8rem; line-height:1.34; }
 .ww-field-task span { color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; }
@@ -476,7 +481,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -2334,6 +2339,67 @@ def build_tree_twin_records(signal: dict, prediction_df: Optional[pd.DataFrame],
     return records
 
 
+def tree_twin_priority(record: dict) -> tuple[str, str]:
+    if record["stress_score"] >= 68 or record["moisture_score"] <= 35:
+        return "Field check next", "Use the next visit to confirm crown condition, visible drought stress, and soil context."
+    if record["stress_score"] >= 48 or record["moisture_score"] <= 48:
+        return "Repeat observation", "Keep this anchor in the next monitoring cycle and compare against nearby reference trees."
+    return "Reference baseline", "Useful as a lower-stress comparison point while the tree-level record is still being built."
+
+
+def build_tree_twin_readiness(record: dict, signal: dict, readings: list[dict], prediction_df: Optional[pd.DataFrame]) -> dict:
+    score = 32
+    sources = ["Stable tree anchor"]
+    missing = ["field observer record", "crown condition score", "repeat photos"]
+    if readings:
+        score += 16
+        sources.append("DWD weather context")
+    if signal.get("source"):
+        score += 12
+        sources.append("weather canvas signal")
+    if prediction_df is not None and not prediction_df.empty:
+        score += 16
+        sources.append("prototype stress surface")
+    else:
+        score += 8
+        sources.append("live layer signal")
+    if "candidate" in record["scan_status"]:
+        score += 8
+        missing.append("scan capture")
+    elif "missing" in record["scan_status"]:
+        missing.append("photo baseline")
+    score = int(clamp(score, 1, 86))
+    if score >= 72:
+        label = "field-ready prototype"
+    elif score >= 58:
+        label = "evidence-linked prototype"
+    else:
+        label = "anchor-only prototype"
+    return {"score": score, "label": label, "sources": sources, "missing": missing}
+
+
+def build_tree_twin_field_card(record: dict, period: dict, signal: dict, priority_label: str, readiness: dict) -> pd.DataFrame:
+    rows = [
+        ("tree_id", record["id"], "yes", "Stable anchor used by the prototype."),
+        ("tree_name", record["name"], "yes", "Human-readable tree twin name."),
+        ("zone", record["zone"], "yes", "Stand or landscape context."),
+        ("latitude", f"{record['lat']:.6f}", "yes", "GPS position to verify in the field."),
+        ("longitude", f"{record['lon']:.6f}", "yes", "GPS position to verify in the field."),
+        ("visit_date", period["target_date"].isoformat(), "yes", "Edit this to the actual field visit date."),
+        ("priority", priority_label, "yes", "Prototype field priority, not an operational directive."),
+        ("readiness", f"{readiness['score']}/100 | {readiness['label']}", "yes", "Evidence-readiness, not model certainty."),
+        ("prototype_stress_score", f"{record['stress_score']}/100", "no", "Compare with observed crown and drought condition."),
+        ("moisture_context", f"{record['moisture_score']:.0f}%", "no", "Compare with soil probe or field soil moisture."),
+        ("weather_context", signal.get("source", "selected layers"), "no", "Weather evidence used by the current view."),
+        ("observer", "", "yes", "Field observer name or team."),
+        ("species_confirmed", "", "yes", "Confirm or correct the prototype species mix."),
+        ("crown_condition_0_5", "", "yes", "0 healthy/reference, 5 severe visible stress."),
+        ("visible_stress_notes", "", "yes", "Drought, pest, storm, trail impact, or other visible notes."),
+        ("photo_reference", "", "yes", "Local filename or repository-safe reference, not a secret URL."),
+    ]
+    return pd.DataFrame(rows, columns=["field", "value", "required", "notes"])
+
+
 def extract_tree_twin_id(value: object) -> Optional[str]:
     if value is None:
         return None
@@ -2393,11 +2459,19 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
     selection_note = "Selected from map." if selected_tree_id == selected_id else "Select a tree anchor here or click one on the map."
     moisture_copy = "Water-buffered context" if selected["moisture_score"] >= 62 else "Moisture deficit watch" if selected["moisture_score"] <= 38 else "Moderate moisture context"
     stress_copy = "High-priority validation" if selected["stress_score"] >= 68 else "Monitor through next field cycle" if selected["stress_score"] >= 48 else "Reference baseline candidate"
+    priority_label, priority_copy = tree_twin_priority(selected)
+    readiness = build_tree_twin_readiness(selected, signal, readings, prediction_df)
+    source_copy = ", ".join(readiness["sources"])
+    missing_copy = ", ".join(readiness["missing"][:3])
+    field_card_df = build_tree_twin_field_card(selected, period, signal, priority_label, readiness)
+    field_card_csv = field_card_df.to_csv(index=False).encode("utf-8")
     driver_markup = "".join([
         f"<div class='ww-tree-driver'><span>Prototype stress</span><strong>{selected['stress_score']}/100</strong>{stress_copy}. {selected['evidence_note']}</div>",
         f"<div class='ww-tree-driver'><span>Moisture context</span><strong>{selected['moisture_score']:.0f}%</strong>{moisture_copy}; compare with nearby water and soil probe context.</div>",
         f"<div class='ww-tree-driver'><span>Stand exposure</span><strong>{selected['elevation']} m</strong>{selected['zone']}; {selected['crown']}.</div>",
         f"<div class='ww-tree-driver'><span>Validation state</span><strong>{selected['scan_status']}</strong>Needs field evidence before this becomes a trusted individual-tree record.</div>",
+        f"<div class='ww-tree-driver'><span>Field priority</span><strong>{priority_label}</strong>{priority_copy}</div>",
+        f"<div class='ww-tree-driver'><span>Readiness</span><strong>{readiness['label']}</strong>{readiness['score']}/100 from {source_copy}. Missing: {missing_copy}.</div>",
     ])
     st.markdown(f"""
 <div class="ww-tree-register">
@@ -2430,9 +2504,15 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
         <div class="ww-tree-gauge-row"><span>Moisture context</span><strong>{selected['moisture_score']:.0f}%</strong></div>
         <div class="ww-driver-meter"><i style="width:{selected['moisture_score']:.0f}%;background:linear-gradient(90deg,#ce6858,#e3a72f,#3ca7a6);"></i></div>
       </div>
+      <div class="ww-tree-gauge">
+        <div class="ww-tree-gauge-row"><span>Evidence readiness</span><strong>{readiness['score']}/100</strong></div>
+        <div class="ww-driver-meter"><i style="width:{readiness['score']}%;background:linear-gradient(90deg,#8eb8c7,#2f7d4f);"></i></div>
+      </div>
       <div class="ww-tree-detail">
         <div class="ww-tree-detail-row"><span>Species mix</span><strong>{selected['species']}</strong></div>
         <div class="ww-tree-detail-row"><span>Nearest weather context</span><strong>{selected['nearest_station']}</strong></div>
+        <div class="ww-tree-detail-row"><span>Field priority</span><strong>{priority_label}</strong></div>
+        <div class="ww-tree-detail-row"><span>Readiness state</span><strong>{readiness['label']}</strong></div>
         <div class="ww-tree-detail-row"><span>Next field note</span><strong>{selected['field_note']}</strong></div>
       </div>
     </div>
@@ -2440,7 +2520,7 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
 </div>
     """, unsafe_allow_html=True)
 
-    memory_tab, evidence_tab, capture_tab = st.tabs(["Memory", "Why this score", "3D capture"])
+    memory_tab, evidence_tab, field_tab, capture_tab = st.tabs(["Memory", "Why this score", "Field card", "3D capture"])
     with memory_tab:
         st.markdown(f"""
 <div class="ww-memory-list">
@@ -2455,6 +2535,22 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
             pd.DataFrame(records)[["id", "name", "zone", "species", "stress_score", "moisture_score", "status", "scan_status", "nearest_station"]],
             use_container_width=True,
             hide_index=True,
+        )
+    with field_tab:
+        st.markdown(f"""
+<div class="ww-field-card-grid">
+  <div class="ww-field-card"><span>Priority</span><strong>{priority_label}</strong>{priority_copy}</div>
+  <div class="ww-field-card"><span>Evidence readiness</span><strong>{readiness['score']}/100</strong>{readiness['label']}; this is data maturity, not model certainty.</div>
+  <div class="ww-field-card"><span>Missing evidence</span><strong>{missing_copy}</strong>These are the next low-cost inputs needed for a repeatable tree record.</div>
+</div>
+<div class="ww-local-export-note">The field card below is a local CSV template for planning a site visit. It does not write to Earth Engine, Google Cloud, or any external database.</div>
+        """, unsafe_allow_html=True)
+        st.dataframe(field_card_df, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download local field card CSV",
+            data=field_card_csv,
+            file_name=f"{selected_id.lower()}_field_card.csv",
+            mime="text/csv",
         )
     with capture_tab:
         st.markdown(f"""
