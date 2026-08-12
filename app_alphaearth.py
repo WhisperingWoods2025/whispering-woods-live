@@ -55,6 +55,7 @@ COSTED_USAGE_MODES = {"billable", "commercial", "enterprise", "government_operat
 FORECAST_CAVEAT = "Forecast is an explainable prototype model, not an operational risk decision."
 FORECAST_HORIZON_YEARS = 10
 DEFAULT_FORECAST_HORIZON_YEARS = 4
+CURRENT_OBSERVATION_YEAR = 2026
 PREDICTION_DISABLED_LAYERS = {"precipitation", "wind_flow", "cloud_veil", "moisture_flow", "canopy_stress", "weather_sensors"}
 PREDICTION_FORCED_LAYERS = {"prediction"}
 WEATHER_PANE_CONFIG = {
@@ -169,6 +170,26 @@ LAYER_META = [item for _, items in LAYER_SECTIONS for item in items]
 WORKSPACE_MODES = ["Map", "3D View", "Predictions"]
 WORKSPACE_QUERY_SLUGS = {"Map": "map", "3D View": "3d-view", "Predictions": "predictions"}
 WORKSPACE_MODES_BY_SLUG = {slug: mode for mode, slug in WORKSPACE_QUERY_SLUGS.items()}
+WORKSPACE_MODE_META = {
+    "Map": {
+        "nav": "Live map",
+        "title": "Forest weather canvas",
+        "status": "Observed evidence",
+        "copy": "Live weather context and historical evidence layers for exploring the protected forest.",
+    },
+    "3D View": {
+        "nav": "3D twin",
+        "title": "Terrain, stress, and observation points",
+        "status": "3D prototype",
+        "copy": "A derived terrain and risk view for reading hotspots, probes, and candidate tree anchors.",
+    },
+    "Predictions": {
+        "nav": "Forecast",
+        "title": "Forest vulnerability forecast",
+        "status": "Forecast prototype",
+        "copy": FORECAST_CAVEAT,
+    },
+}
 
 VIEW_PRESETS = {
     "Weather canvas": {
@@ -290,7 +311,7 @@ def inject_theme_css() -> None:
 .ww-brand { display:flex; align-items:center; gap:.68rem; color:var(--ww-ink); font-weight:790; font-size:1rem; }
 .ww-mark { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:#ffffff; background:#16251c; font-weight:850; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
 .ww-nav { display:flex; align-items:center; gap:.32rem; padding:.22rem; border:1px solid var(--ww-line); border-radius:8px; background:rgba(246,245,239,.72); }
-.ww-nav a { padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; text-decoration:none; transition:background .16s ease, color .16s ease, box-shadow .16s ease; }
+.ww-nav a { min-width:82px; text-align:center; padding:.44rem .7rem; border-radius:7px; color:var(--ww-muted); font-size:.84rem; font-weight:730; text-decoration:none; transition:background .16s ease, color .16s ease, box-shadow .16s ease; }
 .ww-nav a:hover { color:var(--ww-ink); background:rgba(255,255,255,.72); }
 .ww-nav .active { color:#ffffff; background:#17251c; box-shadow:0 8px 24px rgba(22,37,28,.18); }
 .ww-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; margin:.1rem 0 .85rem; }
@@ -303,16 +324,28 @@ def inject_theme_css() -> None:
 .ww-panel { border:1px solid var(--ww-line); border-radius:8px; background:rgba(255,255,255,.80); box-shadow:0 18px 58px rgba(35,53,42,.09); padding:.85rem .85rem .72rem; position:sticky; top:72px; }
 .ww-panel-title { color:var(--ww-ink); font-size:1.2rem; font-weight:840; margin:0 0 .18rem; }
 .ww-panel-copy { color:var(--ww-muted); font-size:.86rem; line-height:1.42; margin:0 0 .7rem; }
-.ww-control-band { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.72rem .78rem .45rem; margin-bottom:.62rem; background:rgba(247,245,238,.80); }
-.ww-control-band.disabled { background:rgba(239,239,234,.62); border-color:rgba(26,46,35,.07); }
+.ww-control-band { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.62rem .72rem .42rem; margin-bottom:.56rem; background:rgba(247,245,238,.80); }
+.ww-control-band.disabled { background:rgba(239,239,234,.62); border-color:rgba(26,46,35,.07); color:#89938c; }
+.ww-control-band.disabled [data-testid="stCheckbox"] { opacity:.42; filter:grayscale(.22); }
 .ww-control-note { color:#7b877f; font-size:.76rem; line-height:1.34; margin:.16rem 0 .38rem; }
-.ww-time-card { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem .62rem; margin:.48rem 0 .56rem; }
-.ww-time-card span { color:var(--ww-muted); display:block; font-size:.7rem; font-weight:780; text-transform:uppercase; letter-spacing:.04em; }
-.ww-time-card strong { color:var(--ww-ink); display:block; font-size:.96rem; line-height:1.24; margin:.2rem 0 .5rem; }
-.ww-time-rail { height:7px; border-radius:999px; background:rgba(26,46,35,.10); overflow:hidden; }
-.ww-time-rail i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#3478a9,#3ca7a6,#e3a72f); }
+.ww-mode-card { border:1px solid rgba(26,46,35,.09); border-radius:8px; padding:.58rem .64rem; margin:.48rem 0 .56rem; background:rgba(255,255,255,.68); box-shadow:inset 0 1px 0 rgba(255,255,255,.72); }
+.ww-mode-card span { color:var(--ww-green); display:block; font-size:.68rem; font-weight:820; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.15rem; }
+.ww-mode-card strong { color:var(--ww-ink); display:block; font-size:.92rem; line-height:1.2; }
+.ww-mode-card p { color:#65736a; font-size:.76rem; line-height:1.34; margin:.28rem 0 0; }
+.ww-time-card { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(247,250,247,.64)); padding:.54rem .62rem .6rem; margin:.42rem 0 .5rem; box-shadow:inset 0 1px 0 rgba(255,255,255,.78); }
+.ww-time-card span { color:var(--ww-muted); display:block; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+.ww-time-card strong { color:var(--ww-ink); display:block; font-size:.94rem; line-height:1.22; margin:.16rem 0 .52rem; }
+.ww-time-card.forecast strong { color:#5d3128; }
+.ww-time-rail { height:5px; border-radius:999px; background:rgba(26,46,35,.095); overflow:visible; position:relative; }
+.ww-time-rail i { display:block; height:100%; min-width:5px; border-radius:999px; position:relative; background:linear-gradient(90deg,#3478a9,#3ca7a6,#e3a72f); }
+.ww-time-rail i:after { content:""; position:absolute; right:-5px; top:50%; width:11px; height:11px; border-radius:999px; transform:translateY(-50%); background:#ffffff; border:2px solid #2f7d4f; box-shadow:0 2px 10px rgba(35,53,42,.18); }
+.ww-time-card.forecast .ww-time-rail i { background:linear-gradient(90deg,#2f7d4f,#e3a72f,#ce6858); }
+.ww-time-card.forecast .ww-time-rail i:after { border-color:#ce6858; }
 .ww-time-meta { display:flex; justify-content:space-between; gap:.5rem; margin-top:.4rem; color:#6a766d; font-size:.72rem; font-weight:720; }
 .ww-time-meta em { font-style:normal; }
+.ww-panel [data-testid="stSlider"] { padding-top:.04rem; padding-bottom:.18rem; }
+.ww-panel [data-testid="stNumberInput"] { margin-bottom:.25rem; }
+.ww-panel [role="radiogroup"] { gap:.25rem; }
 .ww-map-head { display:flex; align-items:center; justify-content:space-between; gap:.85rem; margin:.14rem 0 .5rem; }
 .ww-map-title { color:var(--ww-ink); font-size:1.08rem; font-weight:800; }
 .ww-legend { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.36rem; }
@@ -1875,21 +1908,37 @@ def advance_period_step(key: str, year: int, granularity: str, delta: int) -> No
     st.session_state[key] = min(max(int(st.session_state[key]) + delta, min_step), max_step)
 
 
+def render_mode_context(app_mode: str) -> None:
+    meta = WORKSPACE_MODE_META[app_mode]
+    st.markdown(f"""
+<div class="ww-mode-card">
+  <span>{meta['status']}</span>
+  <strong>{meta['nav']}</strong>
+  <p>{meta['copy']}</p>
+</div>
+    """, unsafe_allow_html=True)
+
+
 def render_timeline_status(year: int, granularity: str, step_index: Optional[int]) -> None:
     period = build_period_context(year, granularity, step_index)
     if granularity == "Annual":
-        progress = ((year - 2000) / 26) * 100
-        left_label, right_label = "2000", "2026"
+        progress = ((year - 2000) / (CURRENT_OBSERVATION_YEAR - 2000)) * 100
+        left_label, right_label = "2000", str(CURRENT_OBSERVATION_YEAR)
+        display_label = f"{year} evidence snapshot"
+        center_label = "Annual"
     else:
         min_step, max_step = get_period_step_bounds(year, granularity)
         progress = ((int(step_index or min_step) - min_step) / max(max_step - min_step, 1)) * 100
-        left_label, right_label = str(min_step), str(max_step)
+        left_label = "Week 1" if granularity == "Weekly" else "Day 1"
+        right_label = f"Week {max_step}" if granularity == "Weekly" else f"Day {max_step}"
+        display_label = f"{period['label']} | {period['target_date'].strftime('%b %d')}"
+        center_label = granularity
     st.markdown(f"""
-<div class="ww-time-card">
-  <span>Selected time</span>
-  <strong>{period['label']}</strong>
+<div class="ww-time-card observed">
+  <span>Observed timeline</span>
+  <strong>{display_label}</strong>
   <div class="ww-time-rail"><i style="width:{progress:.1f}%;"></i></div>
-  <div class="ww-time-meta"><em>{left_label}</em><em>{granularity}</em><em>{right_label}</em></div>
+  <div class="ww-time-meta"><em>{left_label}</em><em>{center_label}</em><em>{right_label}</em></div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -1899,11 +1948,11 @@ def render_forecast_horizon_status(today: date, horizon_years: int) -> None:
     progress = (horizon_years / FORECAST_HORIZON_YEARS) * 100
     horizon_label = "Today" if horizon_years == 0 else f"+{horizon_years} year(s)"
     st.markdown(f"""
-<div class="ww-time-card">
-  <span>Forecast horizon</span>
-  <strong>{horizon_label}</strong>
+<div class="ww-time-card forecast">
+  <span>Forecast timeline</span>
+  <strong>{horizon_label} | {target.strftime('%Y')}</strong>
   <div class="ww-time-rail"><i style="width:{progress:.1f}%;"></i></div>
-  <div class="ww-time-meta"><em>{today.strftime('%b %d, %Y')}</em><em>Prototype forecast</em><em>{target.strftime('%b %d, %Y')}</em></div>
+  <div class="ww-time-meta"><em>Today</em><em>Prototype</em><em>{target.strftime('%b %d, %Y')}</em></div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -1913,7 +1962,7 @@ def render_topbar(app_mode: str) -> None:
         return "active" if label == app_mode else ""
 
     nav_items = "".join(
-        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{label}</a>'
+        f'<a class="{nav_class(label)}" href="?workspace={WORKSPACE_QUERY_SLUGS[label]}" target="_self">{WORKSPACE_MODE_META[label]["nav"]}</a>'
         for label in WORKSPACE_MODES
     )
     st.markdown(f"""
@@ -1925,12 +1974,12 @@ def render_topbar(app_mode: str) -> None:
 
 
 def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode: str, app_mode: str, period_label: str, projection_year: int) -> None:
-    titles = {"Map": "Forest weather canvas", "3D View": "Terrain, stress, and observation points", "Predictions": "Forest vulnerability forecast"}
+    titles = {mode: meta["title"] for mode, meta in WORKSPACE_MODE_META.items()}
     lens_copy = VIEW_PRESETS[view_mode]["copy"]
     if app_mode == "Predictions":
         lens_copy = FORECAST_CAVEAT
-    timeline_status = f"Today -> {projection_year}" if app_mode == "Predictions" else (f"Projection {projection_year}" if app_mode == "3D View" else period_label)
-    mode_status = "Prototype forecast" if app_mode == "Predictions" else "Earth Engine live"
+    timeline_status = f"Today -> {projection_year}" if app_mode == "Predictions" else (f"3D target {projection_year}" if app_mode == "3D View" else f"Observed {period_label}")
+    mode_status = WORKSPACE_MODE_META[app_mode]["status"]
     st.markdown(f"""
 <div class="ww-hero">
   <div>
@@ -1955,8 +2004,9 @@ def render_layer_panel() -> tuple:
 
     sync_workspace_mode_from_query()
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
-    app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode")
+    app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode", format_func=lambda mode: WORKSPACE_MODE_META[mode]["nav"])
     sync_workspace_query(app_mode)
+    render_mode_context(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
@@ -1975,30 +2025,34 @@ def render_layer_panel() -> tuple:
         step_index = today.timetuple().tm_yday
         weather_source = "Live DWD hourly"
         default_horizon = min(max(int(st.session_state.get("forecast_horizon_years", DEFAULT_FORECAST_HORIZON_YEARS)), 0), FORECAST_HORIZON_YEARS)
-        horizon_years = int(st.slider("Years from today", min_value=0, max_value=FORECAST_HORIZON_YEARS, value=default_horizon, step=1, key="forecast_horizon_years"))
-        projection_year = today.year + horizon_years
+        default_target_year = today.year + default_horizon
+        projection_year = int(st.slider("Forecast target", min_value=today.year, max_value=today.year + FORECAST_HORIZON_YEARS, value=default_target_year, step=1, key="forecast_target_year", help="Starts at today and moves into the next ten years."))
+        horizon_years = projection_year - today.year
+        st.session_state["forecast_horizon_years"] = horizon_years
         render_forecast_horizon_status(today, horizon_years)
+        st.markdown(f"<div class='ww-control-note'>{FORECAST_CAVEAT}</div>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
-        year = int(st.number_input("Year", min_value=2000, max_value=2026, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
-        granularity = st.radio("Time step", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
-        weather_source = st.radio("Weather source", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
+        year = int(st.slider("Observed year", min_value=2000, max_value=CURRENT_OBSERVATION_YEAR, value=int(st.session_state.get("timeline_year", 2024)), step=1, key="timeline_year"))
+        granularity = st.radio("Scrub by", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
+        weather_source = st.radio("Weather", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
         if granularity != "Annual":
             step_key = get_period_step_key(granularity)
             clamp_session_step(step_key, year, granularity)
-            previous_col, step_col, next_col = st.columns([0.22, 0.56, 0.22])
-            with previous_col:
-                if st.button("Prev", key=f"{step_key}_prev", use_container_width=True):
-                    advance_period_step(step_key, year, granularity, -1)
-            with next_col:
-                if st.button("Next", key=f"{step_key}_next", use_container_width=True):
-                    advance_period_step(step_key, year, granularity, 1)
             min_step, max_step = get_period_step_bounds(year, granularity)
-            with step_col:
-                step_index = int(st.number_input("Week" if granularity == "Weekly" else "Day of year", min_value=min_step, max_value=max_step, step=1, key=step_key))
+            scrub_label = "Week" if granularity == "Weekly" else "Day"
+            step_index = int(st.slider(scrub_label, min_value=min_step, max_value=max_step, value=int(st.session_state[step_key]), step=1, key=step_key))
         render_timeline_status(year, granularity, step_index)
-        projection_year = int(st.number_input("Projection year", min_value=2026, max_value=2040, value=int(st.session_state.get("projection_year", 2030)), step=1, key="projection_year"))
-    risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1)
+        forecast_overlay_active = app_mode == "3D View" or bool(st.session_state.get("layer_prediction", False))
+        if forecast_overlay_active:
+            default_projection = min(max(int(st.session_state.get("projection_year", today.year + DEFAULT_FORECAST_HORIZON_YEARS)), today.year), today.year + FORECAST_HORIZON_YEARS)
+            projection_year = int(st.slider("Forecast overlay year", min_value=today.year, max_value=today.year + FORECAST_HORIZON_YEARS, value=default_projection, step=1, key="projection_year", help="Used only for 3D and predicted stress overlays."))
+            st.markdown(f"<div class='ww-control-note'>{FORECAST_CAVEAT}</div>", unsafe_allow_html=True)
+        else:
+            projection_year = today.year + DEFAULT_FORECAST_HORIZON_YEARS
+            st.markdown("<div class='ww-control-note'>Forecast controls appear when 3D View or Predicted stress surface is active.</div>", unsafe_allow_html=True)
+    forecast_controls_active = app_mode == "Predictions" or app_mode == "3D View" or bool(st.session_state.get("layer_prediction", False))
+    risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1, disabled=not forecast_controls_active, help="Scenario only affects the prototype forecast surface.")
     basemap = st.selectbox("Map style", ["Light", "Satellite", "Terrain"], index=0)
     height_mode = "Risk score"
     if app_mode == "3D View":
