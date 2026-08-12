@@ -167,6 +167,24 @@ LAYER_SECTIONS = [
     ),
 ]
 LAYER_META = [item for _, items in LAYER_SECTIONS for item in items]
+SOURCE_LAYER_INFO = {
+    "precipitation": {"kind": "Rendered weather", "source": "DWD public weather signal", "availability": "Today or selected observed period", "confidence": "Visual context"},
+    "wind_flow": {"kind": "Rendered weather", "source": "DWD public wind signal", "availability": "Today or selected observed period", "confidence": "Visual context"},
+    "cloud_veil": {"kind": "Rendered weather", "source": "DWD humidity plus in-app veil", "availability": "Today or selected observed period", "confidence": "Visual context"},
+    "moisture_flow": {"kind": "Rendered hydrology", "source": "DWD humidity, rainfall, and recurring water context", "availability": "Today or selected observed period", "confidence": "Visual context"},
+    "canopy_stress": {"kind": "Prototype signal", "source": "In-app forest-stress signal", "availability": "Today or selected observed period", "confidence": "Prototype"},
+    "alphaearth": {"kind": "Earth observation", "source": "AlphaEarth annual embeddings", "availability": "2017-2024", "confidence": "Public dataset"},
+    "prediction": {"kind": "Prototype forecast", "source": "Explainable in-app stress model", "availability": "Today to forecast horizon", "confidence": "Prototype"},
+    "tree_cover": {"kind": "Earth observation", "source": "Hansen year-2000 tree canopy", "availability": "Baseline", "confidence": "Public dataset"},
+    "tree_loss": {"kind": "Earth observation", "source": "Hansen cumulative tree-cover loss", "availability": "2001-2025", "confidence": "Public dataset"},
+    "water": {"kind": "Earth observation", "source": "JRC Global Surface Water", "availability": "Recurring water history", "confidence": "Public dataset"},
+    "habitat": {"kind": "Earth observation", "source": "ESA WorldCover", "availability": "Static land-cover context", "confidence": "Public dataset"},
+    "fire": {"kind": "Earth observation", "source": "MODIS burned area", "availability": "Selected observed year when available", "confidence": "Public dataset"},
+    "air_temperature": {"kind": "Climate model layer", "source": "ERA5-Land monthly aggregate", "availability": "Observed years, current year may be partial", "confidence": "Public dataset"},
+    "soil_moisture": {"kind": "Climate model layer", "source": "ERA5-Land top-layer soil moisture", "availability": "Observed years, current year may be partial", "confidence": "Public dataset"},
+    "weather_sensors": {"kind": "Observation points", "source": "Nearby DWD station records", "availability": "Station coverage varies", "confidence": "Official public observations"},
+    "soil_sensors": {"kind": "Prototype points", "source": "Deterministic local soil-probe placeholders", "availability": "Prototype only", "confidence": "Needs real sensor feed"},
+}
 WORKSPACE_MODES = ["Map", "3D View", "Predictions"]
 WORKSPACE_QUERY_SLUGS = {"Map": "map", "3D View": "3d-view", "Predictions": "predictions"}
 WORKSPACE_MODES_BY_SLUG = {slug: mode for mode, slug in WORKSPACE_QUERY_SLUGS.items()}
@@ -328,6 +346,9 @@ def inject_theme_css() -> None:
 .ww-control-band.disabled { background:rgba(239,239,234,.62); border-color:rgba(26,46,35,.07); color:#89938c; }
 .ww-control-band.disabled [data-testid="stCheckbox"] { opacity:.42; filter:grayscale(.22); }
 .ww-control-note { color:#7b877f; font-size:.76rem; line-height:1.34; margin:.16rem 0 .38rem; }
+.ww-today-pin { display:flex; align-items:center; justify-content:space-between; gap:.7rem; border:1px solid rgba(47,125,79,.15); border-radius:8px; background:rgba(229,244,232,.62); padding:.48rem .56rem; margin:.38rem 0 .5rem; color:#33533d; font-size:.78rem; line-height:1.28; }
+.ww-today-pin strong { color:#17251c; font-size:.84rem; }
+.ww-today-pin span { color:#5f7267; }
 .ww-mode-card { border:1px solid rgba(26,46,35,.09); border-radius:8px; padding:.58rem .64rem; margin:.48rem 0 .56rem; background:rgba(255,255,255,.68); box-shadow:inset 0 1px 0 rgba(255,255,255,.72); }
 .ww-mode-card span { color:var(--ww-green); display:block; font-size:.68rem; font-weight:820; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.15rem; }
 .ww-mode-card strong { color:var(--ww-ink); display:block; font-size:.92rem; line-height:1.2; }
@@ -344,6 +365,7 @@ def inject_theme_css() -> None:
 .ww-time-meta { display:flex; justify-content:space-between; gap:.5rem; margin-top:.4rem; color:#6a766d; font-size:.72rem; font-weight:720; }
 .ww-time-meta em { font-style:normal; }
 .ww-panel [data-testid="stSlider"] { padding-top:.04rem; padding-bottom:.18rem; }
+.ww-panel [data-testid="stSlider"] div[role="slider"] { width:14px!important; height:14px!important; border:2px solid #ffffff!important; box-shadow:0 1px 8px rgba(35,53,42,.22)!important; }
 .ww-panel [data-testid="stNumberInput"] { margin-bottom:.25rem; }
 .ww-panel [role="radiogroup"] { gap:.25rem; }
 .ww-map-head { display:flex; align-items:center; justify-content:space-between; gap:.85rem; margin:.14rem 0 .5rem; }
@@ -371,6 +393,13 @@ def inject_theme_css() -> None:
 .ww-source-list { display:grid; gap:.48rem; margin-top:.7rem; }
 .ww-source-item { color:#647267; border-top:1px solid rgba(26,46,35,.10); padding-top:.46rem; font-size:.8rem; line-height:1.35; }
 .ww-source-item strong { color:var(--ww-ink); }
+.ww-source-clarity { border:1px solid rgba(26,46,35,.10); border-radius:8px; background:rgba(255,255,255,.76); padding:.82rem .9rem; margin:.1rem 0 .86rem; color:#5c6a61; font-size:.84rem; line-height:1.38; }
+.ww-source-clarity strong { color:var(--ww-ink); }
+.ww-source-clarity-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.48rem; margin:.62rem 0 .2rem; }
+.ww-source-clarity-card { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(247,250,247,.68); padding:.58rem .62rem; min-height:88px; }
+.ww-source-clarity-card span { display:block; color:var(--ww-green); font-size:.65rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.14rem; }
+.ww-source-clarity-card strong { display:block; color:var(--ww-ink); font-size:.9rem; line-height:1.18; margin-bottom:.18rem; }
+.ww-source-clarity-card p { color:#66746b; margin:0; font-size:.75rem; line-height:1.32; }
 .ww-plan-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.42rem; margin-top:.42rem; }
 .ww-plan-chip { color:#35513f; background:rgba(220,239,222,.54); border:1px dashed rgba(47,125,79,.24); border-radius:8px; padding:.46rem .5rem; font-size:.78rem; font-weight:730; }
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
@@ -464,6 +493,11 @@ def inject_theme_css() -> None:
 .ww-3d-overlay span { display:flex; align-items:center; gap:.34rem; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.16rem; }
 .ww-3d-overlay span i { width:8px; height:8px; border-radius:999px; display:inline-block; background:var(--dot); }
 .ww-3d-overlay strong { color:var(--ww-ink); display:block; font-size:.9rem; line-height:1.18; margin-bottom:.16rem; }
+.ww-3d-scene-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; margin:.1rem 0 .7rem; }
+.ww-3d-scene-card { border:1px solid rgba(26,46,35,.09); border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,.84),rgba(245,249,246,.66)); padding:.64rem .7rem; color:#5d6b62; font-size:.78rem; line-height:1.32; min-height:98px; }
+.ww-3d-scene-card span { display:block; color:#6c7c71; font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.16rem; }
+.ww-3d-scene-card strong { display:block; color:var(--ww-ink); font-size:.94rem; line-height:1.18; margin-bottom:.2rem; }
+.ww-3d-scene-card p { margin:0; color:#5f6d63; font-size:.78rem; line-height:1.34; }
 .ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(43,95,92,.13); border-radius:8px; min-height:50px; margin:.18rem 0 .56rem; background:linear-gradient(135deg, rgba(247,251,248,.94), rgba(235,245,245,.70)); box-shadow:0 10px 30px rgba(35,53,42,.06); }
 .ww-motion-proof:before { content:""; position:absolute; left:-24%; right:-24%; top:0; height:100%; background:radial-gradient(ellipse at 16% 38%, rgba(255,255,255,.76), rgba(197,217,219,.22) 34%, rgba(197,217,219,0) 58%), repeating-linear-gradient(104deg, rgba(44,116,139,0) 0 38px, rgba(44,116,139,.20) 38px 40px, rgba(255,255,255,.50) 40px 41px, rgba(44,116,139,0) 41px 82px); animation:ww-proof-sweep 7.8s linear infinite; opacity:.62; }
 .ww-motion-proof:after { content:""; position:absolute; left:-18%; bottom:10px; width:42%; height:10px; border-radius:999px; background:linear-gradient(90deg, rgba(15,92,124,0), rgba(15,92,124,.42), rgba(255,255,255,.62), rgba(15,92,124,0)); filter:blur(.2px); animation:ww-proof-cloud 6.2s ease-in-out infinite; opacity:.54; }
@@ -486,7 +520,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head,.ww-today-pin { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip,.ww-3d-scene-grid,.ww-source-clarity-grid { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -719,6 +753,15 @@ def format_dwd_hour(raw_date: str) -> str:
 
 def current_observed_date() -> date:
     return min(date.today(), date(CURRENT_OBSERVATION_YEAR, 12, 31))
+
+
+def current_observed_period_defaults(granularity: str = "Daily") -> tuple[int, str, Optional[int]]:
+    observed_max = current_observed_date()
+    if granularity == "Weekly":
+        return observed_max.year, granularity, ((observed_max.timetuple().tm_yday - 1) // 7) + 1
+    if granularity == "Annual":
+        return observed_max.year, granularity, None
+    return observed_max.year, "Daily", observed_max.timetuple().tm_yday
 
 
 def clamp_observed_target(target: date) -> date:
@@ -1913,6 +1956,33 @@ def deck_polygon(points: list[list[float]]) -> list[list[float]]:
     return [[lon, lat] for lat, lon in points]
 
 
+def build_3d_tree_crown_frame(sensor_df: pd.DataFrame, bounds: list[list[float]]) -> pd.DataFrame:
+    if sensor_df.empty or "kind" not in sensor_df:
+        return pd.DataFrame()
+    tree_df = sensor_df[sensor_df["kind"] == "Tree twin anchor"].copy()
+    if tree_df.empty:
+        return pd.DataFrame()
+    stats = get_bounds_stats(bounds)
+    rows = []
+    for idx, row in tree_df.iterrows():
+        base_color = row["color"] if isinstance(row.get("color"), list) else [47, 125, 79, 220]
+        fill_color = [int(base_color[0]), int(base_color[1]), int(base_color[2]), 70]
+        line_color = [int(base_color[0]), int(base_color[1]), int(base_color[2]), 185]
+        lat = float(row["lat"])
+        lon = float(row["lon"])
+        rows.append({
+            "name": str(row["name"]),
+            "label": extract_tree_twin_id(row["name"]) or "Tree",
+            "tooltip": str(row.get("tooltip", "Tree twin anchor")),
+            "lat": lat,
+            "lon": lon,
+            "polygon": deck_polygon(blob_points(lat, lon, stats["lat_span"] * 0.018, stats["lon_span"] * 0.020, idx + 9.5, count=24)),
+            "fill_color": fill_color,
+            "line_color": line_color,
+        })
+    return pd.DataFrame(rows)
+
+
 def build_3d_overlay_frames(prediction_df: pd.DataFrame, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> dict[str, pd.DataFrame]:
     stats = get_bounds_stats(bounds)
     lat_span, lon_span = stats["lat_span"], stats["lon_span"]
@@ -2079,10 +2149,13 @@ def get_period_step_bounds(year: int, granularity: str) -> tuple[int, int]:
 
 def get_default_period_step(year: int, granularity: str) -> int:
     _, max_step = get_period_step_bounds(year, granularity)
+    observed_max = current_observed_date()
+    today_day = observed_max.timetuple().tm_yday
+    today_week = ((today_day - 1) // 7) + 1
     if granularity == "Daily":
-        return min(196, max_step)
+        return min(today_day, max_step)
     if granularity == "Weekly":
-        return min(28, max_step)
+        return min(today_week, max_step)
     return 1
 
 
@@ -2169,7 +2242,12 @@ def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode
     lens_copy = VIEW_PRESETS[view_mode]["copy"]
     if app_mode == "Predictions":
         lens_copy = FORECAST_CAVEAT
-    timeline_status = f"Today -> {projection_year}" if app_mode == "Predictions" else (f"3D target {projection_year}" if app_mode == "3D View" else f"Observed {period_label}")
+    if app_mode == "Predictions":
+        timeline_status = f"Forecast to {projection_year}"
+    elif app_mode == "3D View":
+        timeline_status = f"Observed {period_label} + scenario {projection_year}"
+    else:
+        timeline_status = f"Observed {period_label}"
     mode_status = WORKSPACE_MODE_META[app_mode]["status"]
     st.markdown(f"""
 <div class="ww-hero">
@@ -2197,6 +2275,9 @@ def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
     app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode", format_func=lambda mode: WORKSPACE_MODE_META[mode]["nav"])
     sync_workspace_query(app_mode)
+    if app_mode != "Predictions" and st.session_state.get("_last_workspace_mode") != app_mode:
+        st.session_state["observed_time_mode"] = "Today"
+    st.session_state["_last_workspace_mode"] = app_mode
     render_mode_context(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2207,7 +2288,7 @@ def render_layer_panel() -> tuple:
     st.caption(VIEW_PRESETS[view_mode]["copy"])
     st.markdown("</div>", unsafe_allow_html=True)
 
-    today = date.today()
+    today = current_observed_date()
     step_index: Optional[int] = None
     if app_mode == "Predictions":
         st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Forecast horizon</div>", unsafe_allow_html=True)
@@ -2225,17 +2306,33 @@ def render_layer_panel() -> tuple:
     else:
         st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Timeline</div>", unsafe_allow_html=True)
         observed_max = current_observed_date()
-        default_year = min(max(int(st.session_state.get("timeline_year", min(2024, observed_max.year))), 2000), observed_max.year)
-        st.session_state["timeline_year"] = default_year
-        year = int(st.slider("Observed year", min_value=2000, max_value=observed_max.year, value=default_year, step=1, key="timeline_year", help=f"Observed views stop at today ({observed_max.isoformat()}). Future dates live only in Forecast."))
-        granularity = st.radio("Scrub by", ["Weekly", "Daily", "Annual"], index=0, horizontal=True, key="timeline_granularity")
-        weather_source = st.radio("Weather", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
-        if granularity != "Annual":
-            step_key = get_period_step_key(granularity)
-            clamp_session_step(step_key, year, granularity)
-            min_step, max_step = get_period_step_bounds(year, granularity)
-            scrub_label = "Week" if granularity == "Weekly" else "Day"
-            step_index = int(st.slider(scrub_label, min_value=min_step, max_value=max_step, value=int(st.session_state[step_key]), step=1, key=step_key))
+        observed_mode = st.radio("Observed time", ["Today", "Past comparison"], index=0, horizontal=True, key="observed_time_mode", help="Observed views open on today. Past comparison is opt-in and never moves beyond today.")
+        if observed_mode == "Today":
+            year, granularity, step_index = current_observed_period_defaults("Daily")
+            st.session_state["timeline_year"] = year
+            st.session_state["timeline_granularity"] = granularity
+            st.session_state["timeline_day"] = step_index
+            st.session_state["timeline_week"] = current_observed_period_defaults("Weekly")[2]
+            weather_source = "Live DWD hourly"
+            st.markdown(f"""
+<div class="ww-today-pin">
+  <strong>Current observed day</strong>
+  <span>{observed_max.strftime('%b %d, %Y')} | live public DWD signal</span>
+</div>
+            """, unsafe_allow_html=True)
+        else:
+            default_year = min(max(int(st.session_state.get("timeline_year", observed_max.year)), 2000), observed_max.year)
+            st.session_state["timeline_year"] = default_year
+            year = int(st.slider("Observed year", min_value=2000, max_value=observed_max.year, value=default_year, step=1, key="timeline_year", help=f"Observed views stop at today ({observed_max.isoformat()}). Future dates live only in Forecast."))
+            granularity = st.radio("Compare by", ["Daily", "Weekly", "Annual"], index=0, horizontal=True, key="timeline_granularity")
+            weather_source = st.radio("Weather signal", ["Live DWD hourly", "Selected timeline"], index=0, horizontal=True, key="weather_source", help="Live reads recent public hourly DWD files. Selected timeline uses daily DWD climate records for the chosen day, week, or year.")
+            if granularity != "Annual":
+                step_key = get_period_step_key(granularity)
+                clamp_session_step(step_key, year, granularity)
+                min_step, max_step = get_period_step_bounds(year, granularity)
+                scrub_label = "Day" if granularity == "Daily" else "Week"
+                step_index = int(st.slider(scrub_label, min_value=min_step, max_value=max_step, value=int(st.session_state[step_key]), step=1, key=step_key))
+        st.markdown("<div class='ww-control-note'>Observed time is bounded to today. Future exploration lives in Forecast or the 3D scenario overlay.</div>", unsafe_allow_html=True)
         render_timeline_status(year, granularity, step_index)
         forecast_overlay_active = app_mode == "3D View" or bool(st.session_state.get("layer_prediction", False))
         if forecast_overlay_active:
@@ -2282,6 +2379,43 @@ def render_sources_panel() -> None:
   <div class="ww-source-item"><strong>Prototype observations</strong><br>Soil probes are deterministic placeholders until a real sensor feed is supplied.</div>
 </div>
     """, unsafe_allow_html=True)
+
+
+def render_source_clarity_drawer(app_mode: str, period: dict, projection_year: int, layers: dict[str, bool], weather_source: str, usage_mode: str) -> None:
+    active_layers = [(layer_id, label) for layer_id, label, _ in LAYER_META if layers.get(layer_id)]
+    if app_mode == "Predictions" and not any(layer_id == "prediction" for layer_id, _ in active_layers):
+        active_layers.insert(0, ("prediction", "Predicted stress surface"))
+    live_count = sum(1 for layer_id, _ in active_layers if SOURCE_LAYER_INFO.get(layer_id, {}).get("confidence", "").startswith("Public") or "DWD" in SOURCE_LAYER_INFO.get(layer_id, {}).get("source", ""))
+    prototype_count = sum(1 for layer_id, _ in active_layers if "Prototype" in SOURCE_LAYER_INFO.get(layer_id, {}).get("confidence", "") or "prototype" in SOURCE_LAYER_INFO.get(layer_id, {}).get("kind", "").lower())
+    forecast_count = sum(1 for layer_id, _ in active_layers if SOURCE_LAYER_INFO.get(layer_id, {}).get("kind") == "Prototype forecast")
+    cards = "".join([
+        f"<div class='ww-source-clarity-card'><span>Time state</span><strong>{'Forecast' if app_mode == 'Predictions' else 'Observed'}</strong><p>{'Today to ' + str(projection_year) if app_mode == 'Predictions' else period['label']}</p></div>",
+        f"<div class='ww-source-clarity-card'><span>Public evidence</span><strong>{live_count} layer(s)</strong><p>Read-only public datasets and DWD observations.</p></div>",
+        f"<div class='ww-source-clarity-card'><span>Prototype context</span><strong>{prototype_count} layer(s)</strong><p>Visual or decision-support signals that need field validation.</p></div>",
+        f"<div class='ww-source-clarity-card'><span>No-cost mode</span><strong>{usage_mode}</strong><p>No exports, cloud writes, paid APIs, or operational certification.</p></div>",
+    ])
+    st.markdown(f"""
+<div class="ww-source-clarity">
+  <strong>What am I seeing?</strong><br>
+  The view separates observed public evidence from rendered context and prototype forecast signals. Weather signal: {weather_source}.
+  <div class="ww-source-clarity-grid">{cards}</div>
+</div>
+    """, unsafe_allow_html=True)
+    with st.expander("Layer source details", expanded=False):
+        if not active_layers:
+            st.caption("No optional layers are active.")
+            return
+        rows = []
+        for layer_id, label in active_layers:
+            info = SOURCE_LAYER_INFO.get(layer_id, {})
+            rows.append({
+                "Layer": label,
+                "Kind": info.get("kind", "Layer"),
+                "Source": info.get("source", "Configured app layer"),
+                "Availability": info.get("availability", "Subject to source availability"),
+                "Confidence": info.get("confidence", "Context"),
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
 def render_planned_layers() -> None:
@@ -2867,9 +3001,9 @@ def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: 
     terrain_df = prediction_df.copy()
     terrain_df["height"] = terrain_df["height_terrain"] if height_mode == "Terrain" else terrain_df["height_risk"]
     terrain_df["name"] = terrain_df["risk_label"]
-    terrain_df["tooltip"] = ""
-    terrain_df["deck_tooltip"] = terrain_df.apply(lambda row: f"{row['risk_label']} stress: {row['risk_score']}/100<br>{row['reason']}<br>Elevation {row['elevation']:.0f} m", axis=1)
+    terrain_df["tooltip"] = terrain_df.apply(lambda row: f"{row['risk_label']} stress: {row['risk_score']}/100<br>{row['reason']}<br>Elevation {row['elevation']:.0f} m", axis=1)
     overlay_frames = build_3d_overlay_frames(prediction_df, bounds, signal, layers)
+    tree_crown_df = build_3d_tree_crown_frame(sensor_df, bounds)
     deck_layers = []
     if not overlay_frames["canopy"].empty:
         deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["canopy"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.72, pickable=True, auto_highlight=True))
@@ -2883,13 +3017,16 @@ def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: 
         deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["rain_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
     if not overlay_frames["wind_paths"].empty:
         deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["wind_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+    if not tree_crown_df.empty:
+        deck_layers.append(pdk.Layer("PolygonLayer", data=tree_crown_df, get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=1.1, opacity=0.86, pickable=True, auto_highlight=True))
     deck_layers.append(pdk.Layer("ColumnLayer", data=terrain_df, get_position="[lon, lat]", get_elevation="height", get_fill_color="color", radius=120, coverage=0.72, pickable=True, auto_highlight=True))
     if not sensor_df.empty:
         point_df = sensor_df.copy()
-        point_df["deck_tooltip"] = ""
         deck_layers.append(pdk.Layer("ScatterplotLayer", data=point_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
+        if not tree_crown_df.empty:
+            deck_layers.append(pdk.Layer("TextLayer", data=tree_crown_df, get_position="[lon, lat]", get_text="label", get_color=[18, 32, 24, 230], get_size=13, get_alignment_baseline="'bottom'", get_pixel_offset=[0, -18]))
     view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.7, pitch=58, bearing=-28)
-    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
+    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
 
 
 def render_3d_overlay_summary(layers: dict[str, bool], signal: dict, height_mode: str) -> None:
@@ -2902,6 +3039,32 @@ def render_3d_overlay_summary(layers: dict[str, bool], signal: dict, height_mode
   <div class="ww-3d-overlay"><span style="--dot:#2f9a98;"><i></i>Moisture</span><strong>{moisture_label}</strong>Water buffers and moisture corridors sit on the terrain instead of only appearing as points.</div>
   <div class="ww-3d-overlay"><span style="--dot:#d6f2f9;"><i></i>Weather ribbons</span><strong>{wind_label} wind | {rain_label}</strong>Directional context comes from the selected DWD signal.</div>
   <div class="ww-3d-overlay"><span style="--dot:#2f7d4f;"><i></i>Height mode</span><strong>{height_mode}</strong>Switch between vulnerability columns and terrain elevation.</div>
+</div>
+    """, unsafe_allow_html=True)
+
+
+def render_3d_scene_guide(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, layers: dict[str, bool], signal: dict, projection_year: int) -> None:
+    if prediction_df.empty:
+        return
+    top = prediction_df.nlargest(1, "risk_score").iloc[0]
+    tree_count = int((sensor_df["kind"] == "Tree twin anchor").sum()) if not sensor_df.empty and "kind" in sensor_df else 0
+    active_overlay_labels = []
+    if layers.get("prediction"):
+        active_overlay_labels.append("forecast stress")
+    if layers.get("tree_cover") or layers.get("habitat") or layers.get("alphaearth"):
+        active_overlay_labels.append("canopy")
+    if layers.get("water") or layers.get("soil_moisture") or layers.get("moisture_flow"):
+        active_overlay_labels.append("moisture")
+    if layers.get("wind_flow") or layers.get("precipitation"):
+        active_overlay_labels.append("weather ribbons")
+    overlay_copy = ", ".join(active_overlay_labels) if active_overlay_labels else "terrain columns only"
+    moisture_copy = f"{round(signal['moisture'] * 100)}% context"
+    st.markdown(f"""
+<div class="ww-3d-scene-grid">
+  <div class="ww-3d-scene-card"><span>3D scene state</span><strong>{overlay_copy}</strong><p>Overlays are drawn as terrain-attached veils, ribbons, and tree crowns.</p></div>
+  <div class="ww-3d-scene-card"><span>Hotspot read</span><strong>{top['risk_score']}/100</strong><p>{top['reason']}</p></div>
+  <div class="ww-3d-scene-card"><span>Tree anchors</span><strong>{tree_count} crowns</strong><p>Tree twin labels and crown footprints connect scene geometry to field memory.</p></div>
+  <div class="ww-3d-scene-card"><span>Scenario layer</span><strong>{projection_year}</strong><p>{moisture_copy}; forecast remains an explainable prototype.</p></div>
 </div>
     """, unsafe_allow_html=True)
 
@@ -2976,6 +3139,7 @@ def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name:
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
     render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
+    render_3d_scene_guide(prediction_df, sensor_df, layers, signal, projection_year)
     render_map_heading(f"{period['label']} -> {projection_year}", [("Stress veil", "#ce6858"), ("Moisture corridors", "#2f9a98"), ("Canopy", "#449666"), ("Stations", "#3478a9"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
     render_3d_view(prediction_df, sensor_df, center, height_mode, bounds, signal, layers)
     if prediction_note:
@@ -3017,6 +3181,7 @@ def main() -> None:
         render_header(usage_mode, enabled_count, area_name, view_mode, app_mode, period["label"], projection_year)
         render_environment_strip(signal)
         render_observation_summary(period, view_mode, layers, signal, readings, unavailable, app_mode, projection_year)
+        render_source_clarity_drawer(app_mode, period, projection_year, layers, weather_source, usage_mode)
         if app_mode == "Map":
             render_map_mode(year, period, projection_year, scenario_name, basemap, layers, view_mode, signal, readings, unavailable, aoi, area_name, center, bounds)
         elif app_mode == "Predictions":
