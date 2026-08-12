@@ -57,6 +57,13 @@ FORECAST_HORIZON_YEARS = 10
 DEFAULT_FORECAST_HORIZON_YEARS = 4
 PREDICTION_DISABLED_LAYERS = {"precipitation", "wind_flow", "cloud_veil", "moisture_flow", "canopy_stress", "weather_sensors"}
 PREDICTION_FORCED_LAYERS = {"prediction"}
+WEATHER_PANE_CONFIG = {
+    "cloud": {"name": "wwWeatherCloudPane", "z_index": 421, "blend": "screen", "opacity": 0.74},
+    "rain": {"name": "wwWeatherRainPane", "z_index": 426, "blend": "normal", "opacity": 0.72},
+    "moisture": {"name": "wwWeatherMoisturePane", "z_index": 432, "blend": "screen", "opacity": 0.82},
+    "wind": {"name": "wwWeatherWindPane", "z_index": 438, "blend": "screen", "opacity": 0.96},
+    "stress": {"name": "wwWeatherStressPane", "z_index": 444, "blend": "normal", "opacity": 0.78},
+}
 
 SCENARIO_SETTINGS = {
     "Conservative": {"warming_per_year": 0.025, "drying_per_year": 0.15},
@@ -1235,6 +1242,28 @@ def build_map(center: list[float], bounds: list[list[float]], basemap: str) -> f
     return m
 
 
+def add_weather_composite_panes(m: folium.Map) -> None:
+    panes = MacroElement()
+    panes._name = "WeatherCompositePanes"
+    panes.pane_config = json.dumps(WEATHER_PANE_CONFIG)
+    panes._template = Template("""
+{% macro script(this, kwargs) %}
+(function() {
+  const map = {{ this._parent.get_name() }};
+  const paneConfig = {{ this.pane_config | safe }};
+  Object.values(paneConfig).forEach(function(config) {
+    const pane = map.getPane(config.name) || map.createPane(config.name);
+    pane.style.zIndex = config.z_index;
+    pane.style.mixBlendMode = config.blend;
+    pane.style.opacity = config.opacity;
+    pane.style.pointerEvents = "none";
+  });
+})();
+{% endmacro %}
+""")
+    m.add_child(panes)
+
+
 def get_bounds_stats(bounds: list[list[float]]) -> dict:
     lats = [point[0] for point in bounds]
     lons = [point[1] for point in bounds]
@@ -1319,25 +1348,25 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
             })
     style = """
 <style>
-.ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:1000; overflow:hidden; isolation:isolate; }
+.ww-motion-layer { position:absolute; inset:0; pointer-events:none; z-index:465; overflow:hidden; isolation:isolate; }
 .ww-motion-layer * { pointer-events:none; }
-.ww-motion-stage { position:absolute; inset:0; overflow:hidden; mix-blend-mode:normal; }
-.ww-motion-badge { position:absolute; right:12px; top:12px; z-index:3; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
+.ww-motion-stage { position:absolute; inset:0; overflow:hidden; isolation:isolate; opacity:.92; }
+.ww-motion-badge { position:absolute; right:12px; top:12px; z-index:6; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(248,252,250,.78); color:#244846; border:1px solid rgba(42,83,72,.16); box-shadow:0 8px 24px rgba(35,53,42,.12); backdrop-filter:blur(10px); font:760 10px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; letter-spacing:.04em; animation:ww-motion-badge-pulse 2.8s ease-in-out infinite alternate; }
 .ww-motion-badge i { width:6px; height:6px; border-radius:99px; background:#2f9ca2; box-shadow:0 0 0 0 rgba(47,156,162,.34); animation:ww-motion-dot 2.2s ease-out infinite; }
-.ww-motion-cloud-shelf { position:absolute; left:-24%; top:2%; width:148%; height:42%; opacity:.18; filter:blur(2.4px); background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.46), rgba(211,225,226,.14) 30%, rgba(211,225,226,0) 58%), radial-gradient(ellipse at 54% 36%, rgba(255,255,255,.36), rgba(192,214,218,.13) 34%, rgba(192,214,218,0) 62%), radial-gradient(ellipse at 83% 54%, rgba(255,255,255,.38), rgba(202,219,221,.12) 34%, rgba(202,219,221,0) 64%); animation:ww-viewport-cloud 28s ease-in-out infinite alternate; }
+.ww-motion-cloud-shelf { position:absolute; z-index:1; left:-24%; top:2%; width:148%; height:42%; opacity:.13; filter:blur(2.6px); mix-blend-mode:screen; background:radial-gradient(ellipse at 18% 44%, rgba(255,255,255,.42), rgba(211,225,226,.11) 30%, rgba(211,225,226,0) 58%), radial-gradient(ellipse at 54% 36%, rgba(255,255,255,.30), rgba(192,214,218,.10) 34%, rgba(192,214,218,0) 62%), radial-gradient(ellipse at 83% 54%, rgba(255,255,255,.32), rgba(202,219,221,.10) 34%, rgba(202,219,221,0) 64%); animation:ww-viewport-cloud 28s ease-in-out infinite alternate; }
 .ww-wind-streamfield, .ww-moisture-streamfield { position:absolute; inset:-7%; width:114%; height:114%; transform:rotate(var(--angle)); transform-origin:center; mix-blend-mode:screen; }
-.ww-wind-streamfield { opacity:var(--wind-alpha); filter:drop-shadow(0 0 1px rgba(255,255,255,.22)); }
+.ww-wind-streamfield { z-index:4; opacity:var(--wind-alpha); filter:drop-shadow(0 0 1px rgba(255,255,255,.22)); }
 .ww-wind-streamfield path { fill:none; stroke:rgba(228,250,255,.50); stroke-width:.34; stroke-linecap:round; stroke-dasharray:7 22; stroke-dashoffset:0; vector-effect:non-scaling-stroke; animation:ww-streamline-drift var(--speed) linear infinite; animation-delay:var(--delay); }
 .ww-wind-streamfield path:nth-child(3n) { stroke:rgba(190,234,248,.34); stroke-width:.26; stroke-dasharray:5 24; }
 .ww-wind-streamfield path:nth-child(4n) { stroke:rgba(255,255,255,.42); stroke-width:.22; stroke-dasharray:4 22; }
 .ww-wind-streamfield path:nth-child(7n) { opacity:.54; }
-.ww-moisture-streamfield { opacity:var(--moisture-alpha); transform:rotate(calc(var(--angle) - 24deg)); filter:blur(.15px); }
+.ww-moisture-streamfield { z-index:3; opacity:var(--moisture-alpha); transform:rotate(calc(var(--angle) - 24deg)); filter:blur(.15px); }
 .ww-moisture-streamfield path { fill:none; stroke:rgba(96,206,196,.34); stroke-width:.42; stroke-linecap:round; stroke-dasharray:2 20; vector-effect:non-scaling-stroke; animation:ww-moisture-drift var(--speed) ease-in-out infinite; animation-delay:var(--delay); }
 .ww-moisture-streamfield path:nth-child(3n) { stroke:rgba(180,231,220,.30); stroke-width:.28; stroke-dasharray:1 17; }
-.ww-precip-radar { position:absolute; inset:-22%; opacity:var(--rain-alpha); filter:blur(18px) saturate(1.15); mix-blend-mode:multiply; background:radial-gradient(ellipse at 64% 58%, rgba(32,95,255,.42) 0 10%, rgba(64,128,255,.22) 22%, rgba(90,180,255,.08) 40%, rgba(90,180,255,0) 62%), radial-gradient(ellipse at 44% 72%, rgba(93,108,245,.32) 0 9%, rgba(98,138,245,.16) 22%, rgba(111,168,245,.06) 42%, rgba(111,168,245,0) 64%), radial-gradient(ellipse at 78% 70%, rgba(180,82,216,.22) 0 7%, rgba(183,82,216,.11) 20%, rgba(183,82,216,0) 48%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.22) 0 10%, rgba(91,180,255,.08) 28%, rgba(91,180,255,0) 54%); animation:ww-radar-drift 20s ease-in-out infinite alternate; }
+.ww-precip-radar { position:absolute; z-index:2; inset:-22%; opacity:var(--rain-alpha); filter:blur(18px) saturate(1.08); mix-blend-mode:screen; background-blend-mode:screen; background:radial-gradient(ellipse at 64% 58%, rgba(32,95,255,.34) 0 10%, rgba(64,128,255,.16) 22%, rgba(90,180,255,.055) 40%, rgba(90,180,255,0) 62%), radial-gradient(ellipse at 44% 72%, rgba(93,108,245,.24) 0 9%, rgba(98,138,245,.12) 22%, rgba(111,168,245,.045) 42%, rgba(111,168,245,0) 64%), radial-gradient(ellipse at 78% 70%, rgba(180,82,216,.16) 0 7%, rgba(183,82,216,.07) 20%, rgba(183,82,216,0) 48%), radial-gradient(ellipse at 32% 48%, rgba(91,180,255,.16) 0 10%, rgba(91,180,255,.055) 28%, rgba(91,180,255,0) 54%); animation:ww-radar-drift 20s ease-in-out infinite alternate; }
 .ww-precip-radar:before { content:""; position:absolute; inset:-4%; opacity:.70; background:radial-gradient(ellipse at 58% 46%, rgba(255,255,255,.90) 0 4%, rgba(255,255,255,.26) 8%, rgba(255,255,255,0) 20%), radial-gradient(ellipse at 46% 62%, rgba(255,255,255,.54) 0 3%, rgba(255,255,255,0) 16%), radial-gradient(ellipse at 72% 70%, rgba(255,255,255,.42) 0 3%, rgba(255,255,255,0) 15%); animation:ww-radar-holes 12s ease-in-out infinite alternate; }
 .ww-precip-radar:after { content:""; position:absolute; inset:0; opacity:.40; background:radial-gradient(ellipse at 68% 58%, rgba(31,91,235,.30) 0 8%, rgba(31,91,235,0) 32%), radial-gradient(ellipse at 78% 68%, rgba(177,73,205,.22) 0 7%, rgba(177,73,205,0) 30%); animation:ww-radar-pulse 9.5s ease-in-out infinite alternate; }
-.ww-motion-cloud { position:absolute; border-radius:999px; border:1px solid rgba(107,133,138,.05); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.62), rgba(209,224,224,.28) 48%, rgba(154,181,187,.10) 70%, rgba(154,181,187,0) 82%); filter:blur(1.4px); box-shadow:0 10px 28px rgba(52,120,169,.06); animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
+.ww-motion-cloud { position:absolute; z-index:1; border-radius:999px; border:1px solid rgba(107,133,138,.04); background:radial-gradient(circle at 35% 42%, rgba(255,255,255,.52), rgba(209,224,224,.20) 48%, rgba(154,181,187,.08) 70%, rgba(154,181,187,0) 82%); filter:blur(1.7px); box-shadow:0 10px 28px rgba(52,120,169,.04); mix-blend-mode:screen; animation:ww-cloud-drift var(--duration) ease-in-out infinite alternate; animation-delay:var(--delay); opacity:var(--opacity); }
 @keyframes ww-cloud-drift {
   from { transform:translate(-50%,-50%) translate(0,0) scale(.96); }
   to { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.10); }
@@ -1422,9 +1451,9 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const nodes = [];
   const stage = L.DomUtil.create("div", "ww-motion-stage", layer);
   stage.style.setProperty("--angle", payload.stage.angle + "deg");
-  stage.style.setProperty("--wind-alpha", (0.24 + payload.stage.wind_strength * 0.16).toFixed(2));
-  stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.46).toFixed(2));
-  stage.style.setProperty("--moisture-alpha", (0.12 + payload.stage.moisture_strength * 0.22).toFixed(2));
+  stage.style.setProperty("--wind-alpha", (0.28 + payload.stage.wind_strength * 0.18).toFixed(2));
+  stage.style.setProperty("--rain-alpha", (payload.stage.precip_intensity * 0.30).toFixed(2));
+  stage.style.setProperty("--moisture-alpha", (0.14 + payload.stage.moisture_strength * 0.18).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
   function addWindStreamfield() {
@@ -1551,24 +1580,31 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
 
 
 def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
+    add_weather_composite_panes(m)
     stats = get_bounds_stats(bounds)
     min_lat, max_lat, min_lon, max_lon = stats["min_lat"], stats["max_lat"], stats["min_lon"], stats["max_lon"]
     lat_span, lon_span = stats["lat_span"], stats["lon_span"]
     seed = (int(signal["wind_direction"]) + int(float(signal["precipitation"] or 0) * 10)) / 57.0
+    silent_path = {"interactive": False, "bubbling_mouse_events": False}
+    cloud_pane = WEATHER_PANE_CONFIG["cloud"]["name"]
+    rain_pane = WEATHER_PANE_CONFIG["rain"]["name"]
+    moisture_pane = WEATHER_PANE_CONFIG["moisture"]["name"]
+    wind_pane = WEATHER_PANE_CONFIG["wind"]["name"]
+    stress_pane = WEATHER_PANE_CONFIG["stress"]["name"]
 
     if layers.get("cloud_veil"):
         group = folium.FeatureGroup(name="Cloud and fog veil", show=True)
-        cloud_opacity = 0.045 + signal["cloud"] * 0.075
+        cloud_opacity = 0.035 + signal["cloud"] * 0.055
         for idx in range(8):
             center_lat = min_lat + lat_span * (0.12 + ((idx * 0.19 + seed * 0.07) % 0.76))
             center_lon = min_lon + lon_span * (0.10 + ((idx * 0.23 + seed * 0.05) % 0.78))
             points = blob_points(center_lat, center_lon, lat_span * (0.10 + idx % 3 * 0.016), lon_span * (0.12 + idx % 2 * 0.022), seed + idx)
-            folium.Polygon(points, color="#f8fbf8", weight=0.55, opacity=cloud_opacity * 0.34, fill=True, fill_color="#f8fbf8", fill_opacity=cloud_opacity, tooltip="Cloud / fog veil").add_to(group)
+            folium.Polygon(points, color="#f8fbf8", weight=0.45, opacity=cloud_opacity * 0.26, fill=True, fill_color="#f8fbf8", fill_opacity=cloud_opacity, tooltip="Cloud / fog veil", pane=cloud_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("precipitation") and signal["precip_intensity"] > 0.01:
         group = folium.FeatureGroup(name="Precipitation field", show=True)
-        rain_opacity = clamp(signal["precip_intensity"] * 0.15, 0.0, 0.18)
+        rain_opacity = clamp(signal["precip_intensity"] * 0.11, 0.0, 0.14)
         radar_colors = ("#6fb7ff", "#4f8dff", "#6a6fee", "#b46dd9")
         for idx in range(11):
             center_lat = min_lat + lat_span * (0.09 + ((idx * 0.17 + seed * 0.11) % 0.82))
@@ -1576,47 +1612,47 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
             scale = 0.045 + signal["precip_intensity"] * 0.055 + (idx % 3) * 0.01
             points = blob_points(center_lat, center_lon, lat_span * scale, lon_span * (scale * 1.28), seed + idx * 1.7)
             cell_opacity = rain_opacity * (1.0 - (idx % 5) * 0.10)
-            folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=cell_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}").add_to(group)
+            folium.Polygon(points, color=radar_colors[idx % len(radar_colors)], weight=0, opacity=0, fill=True, fill_color=radar_colors[idx % len(radar_colors)], fill_opacity=cell_opacity, tooltip=f"Precipitation: {format_number(signal['precipitation'], ' mm')}", pane=rain_pane, **silent_path).add_to(group)
         for idx in range(8):
             start_lat = min_lat + lat_span * (0.06 + idx * 0.11)
             start_lon = min_lon + lon_span * (0.08 + ((idx * 0.13 + seed) % 0.78))
-            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#a9dff3", weight=0.34, opacity=signal["precip_intensity"] * 0.08, dash_array="1 22", tooltip="Rain direction").add_to(group)
+            folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#a9dff3", weight=0.28, opacity=signal["precip_intensity"] * 0.06, dash_array="1 24", tooltip="Rain direction", pane=rain_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("wind_flow"):
         group = folium.FeatureGroup(name="Wind streamlines", show=True)
-        wind_opacity = 0.07 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.11
+        wind_opacity = 0.10 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.14
         for idx in range(22):
             start_lat = min_lat + lat_span * (0.035 + idx * 0.044)
             start_lon = min_lon + lon_span * (0.02 + ((idx * 0.19 + seed * 0.3) % 0.96))
             points = flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8)
-            folium.PolyLine(points, color="#f2fcff", weight=0.62, opacity=wind_opacity, dash_array="4 24", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg").add_to(group)
-            folium.PolyLine(points, color="#77c2d3", weight=0.22, opacity=wind_opacity * 0.50, dash_array="4 24").add_to(group)
+            folium.PolyLine(points, color="#f2fcff", weight=0.58, opacity=wind_opacity, dash_array="4 25", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg", pane=wind_pane, **silent_path).add_to(group)
+            folium.PolyLine(points, color="#77c2d3", weight=0.20, opacity=wind_opacity * 0.58, dash_array="4 25", pane=wind_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("moisture_flow"):
         group = folium.FeatureGroup(name="Moisture flow", show=True)
-        moisture_opacity = 0.03 + signal["moisture"] * 0.095
+        moisture_opacity = 0.028 + signal["moisture"] * 0.075
         for idx in range(16):
             start_lat = min_lat + lat_span * (0.16 + ((idx * 0.085 + seed * 0.05) % 0.68))
             start_lon = min_lon + lon_span * (0.05 + idx * 0.057)
             points = flowline_points(start_lat, start_lon, 24 + idx * 3, lat_span * 0.52, lon_span * 0.46, seed + idx)
-            folium.PolyLine(points, color="#b8e9df", weight=0.72, opacity=moisture_opacity, dash_array="2 23", tooltip="Moisture flow").add_to(group)
-            folium.PolyLine(points, color="#3ba3a0", weight=0.20, opacity=moisture_opacity * 0.68, dash_array="2 23").add_to(group)
+            folium.PolyLine(points, color="#b8e9df", weight=0.62, opacity=moisture_opacity, dash_array="2 24", tooltip="Moisture flow", pane=moisture_pane, **silent_path).add_to(group)
+            folium.PolyLine(points, color="#3ba3a0", weight=0.18, opacity=moisture_opacity * 0.74, dash_array="2 24", pane=moisture_pane, **silent_path).add_to(group)
         for lake_lat, lake_lon in ((47.592, 12.989), (47.606, 12.849)):
             points = blob_points(lake_lat, lake_lon, lat_span * 0.085, lon_span * 0.07, seed)
-            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 0.90, tooltip="Water-buffer moisture zone").add_to(group)
+            folium.Polygon(points, color="#7ed5d0", weight=0, opacity=0, fill=True, fill_color="#7ed5d0", fill_opacity=moisture_opacity * 0.66, tooltip="Water-buffer moisture zone", pane=moisture_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("canopy_stress"):
         group = folium.FeatureGroup(name="Forest stress signal", show=True)
-        stress_opacity = 0.07 + signal["stress"] * 0.22
+        stress_opacity = 0.055 + signal["stress"] * 0.15
         for idx in range(5):
             center_lat = min_lat + lat_span * (0.20 + ((idx * 0.16 + seed * 0.13) % 0.60))
             center_lon = min_lon + lon_span * (0.18 + ((idx * 0.22 + seed * 0.10) % 0.64))
             color = "#ce6858" if signal["stress"] > 0.55 else "#e3a72f"
             points = blob_points(center_lat, center_lon, lat_span * (0.075 + idx * 0.008), lon_span * (0.10 + idx * 0.01), seed + idx * 2.1)
-            folium.Polygon(points, color=color, weight=1, opacity=stress_opacity, fill=True, fill_color=color, fill_opacity=stress_opacity, tooltip="Prototype forest stress signal").add_to(group)
+            folium.Polygon(points, color=color, weight=0.75, opacity=stress_opacity, fill=True, fill_color=color, fill_opacity=stress_opacity, tooltip="Prototype forest stress signal", pane=stress_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     add_weather_motion_overlay(m, bounds, layers, signal)
