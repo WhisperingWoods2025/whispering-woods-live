@@ -133,6 +133,44 @@ TREE_TWIN_ANCHORS = [
     },
 ]
 
+TREE_ASSET_BLUEPRINT = [
+    {
+        "asset_id": "photo_baseline",
+        "label": "Photo baseline",
+        "format": "8-12 geotagged JPEGs",
+        "purpose": "Repeatable visual memory for crown, trunk, bark, and surrounding stand condition.",
+        "path": "photos/",
+    },
+    {
+        "asset_id": "depth_lidar",
+        "label": "Depth or LiDAR pass",
+        "format": "short depth video, LAS/LAZ, or phone LiDAR export",
+        "purpose": "Early geometry reference for crown volume, trunk position, and surrounding structure.",
+        "path": "lidar/",
+    },
+    {
+        "asset_id": "photogrammetry_mesh",
+        "label": "Photogrammetry mesh",
+        "format": "local OBJ, GLB, or small preview mesh",
+        "purpose": "Portable 3D preview for stakeholder review before richer scene capture.",
+        "path": "mesh/",
+    },
+    {
+        "asset_id": "gaussian_splat",
+        "label": "Gaussian splat scene",
+        "format": "small .ply, .splat, or .ksplat bundle",
+        "purpose": "Future immersive tree twin view once capture and validation are mature.",
+        "path": "splat/",
+    },
+    {
+        "asset_id": "field_validation",
+        "label": "Field validation note",
+        "format": "CSV row or local field note",
+        "purpose": "Human observation that can challenge or confirm the prototype stress signal.",
+        "path": "field_notes/",
+    },
+]
+
 LAYER_SECTIONS = [
     (
         "Weather canvas",
@@ -480,6 +518,22 @@ def inject_theme_css() -> None:
 .ww-scan-slot > * { position:relative; z-index:1; }
 .ww-scan-slot span { display:block; color:#3478a9; font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.18rem; }
 .ww-scan-slot strong { display:block; color:#1f4f63; font-size:1rem; margin-bottom:.2rem; }
+.ww-asset-roadmap { border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(255,255,255,.74); padding:.78rem .84rem; margin:.56rem 0 .66rem; color:#5d6b62; }
+.ww-asset-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.8rem; margin-bottom:.62rem; }
+.ww-asset-head span { display:block; color:var(--ww-green); font-size:.68rem; font-weight:820; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.14rem; }
+.ww-asset-head strong { display:block; color:var(--ww-ink); font-size:1rem; line-height:1.18; }
+.ww-asset-head p { color:#617067; margin:.18rem 0 0; font-size:.8rem; line-height:1.34; max-width:720px; }
+.ww-asset-chip { color:#1f4f63; background:rgba(235,244,248,.80); border:1px solid rgba(52,120,169,.18); border-radius:999px; padding:.3rem .52rem; font-size:.7rem; font-weight:780; white-space:nowrap; }
+.ww-asset-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.44rem; }
+.ww-asset-slot { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:linear-gradient(180deg,rgba(250,252,250,.90),rgba(242,247,243,.68)); padding:.58rem .62rem; min-height:152px; position:relative; overflow:hidden; }
+.ww-asset-slot:before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,var(--slot),rgba(255,255,255,0)); opacity:.10; pointer-events:none; }
+.ww-asset-slot > * { position:relative; z-index:1; }
+.ww-asset-slot span { display:block; color:#6c7c71; font-size:.62rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.15rem; }
+.ww-asset-slot strong { display:block; color:var(--ww-ink); font-size:.9rem; line-height:1.18; margin-bottom:.24rem; }
+.ww-asset-slot p { color:#5f6d63; margin:0 0 .36rem; font-size:.75rem; line-height:1.32; }
+.ww-asset-status { display:inline-flex; align-items:center; gap:.28rem; color:#234435; border:1px solid rgba(47,125,79,.17); border-radius:999px; background:rgba(235,247,236,.74); padding:.2rem .36rem; font-size:.64rem; font-weight:800; margin-bottom:.36rem; }
+.ww-asset-status:before { content:""; width:7px; height:7px; border-radius:999px; background:var(--slot); }
+.ww-asset-path { color:#49616b; font-size:.68rem; line-height:1.22; overflow-wrap:anywhere; }
 .ww-memory-list { display:grid; gap:.42rem; margin-top:.1rem; }
 .ww-memory-item { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.68); padding:.58rem .64rem; color:#5c6a61; font-size:.8rem; line-height:1.34; }
 .ww-memory-item span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.12rem; }
@@ -520,7 +574,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head,.ww-today-pin { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip,.ww-3d-scene-grid,.ww-source-clarity-grid { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head,.ww-today-pin,.ww-asset-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip,.ww-3d-scene-grid,.ww-source-clarity-grid,.ww-asset-grid { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -2675,6 +2729,47 @@ def build_tree_twin_field_card(record: dict, period: dict, signal: dict, priorit
     return pd.DataFrame(rows, columns=["field", "value", "required", "notes"])
 
 
+def build_tree_asset_slots(record: dict, readiness: dict) -> list[dict]:
+    scan_status = str(record.get("scan_status", "")).lower()
+    slots = []
+    for item in TREE_ASSET_BLUEPRINT:
+        stage = "planned"
+        color = "#3478a9"
+        next_step = "Define capture owner and keep assets local or repository-scale."
+        if item["asset_id"] == "photo_baseline":
+            if "missing" in scan_status:
+                stage, color = "missing", "#ce6858"
+                next_step = "Capture repeat photos before trusting this as an individual-tree record."
+            else:
+                stage, color = "ready", "#2f7d4f"
+                next_step = "Use the next field visit to capture a small repeatable photo set."
+        elif item["asset_id"] == "depth_lidar":
+            if "lidar" in scan_status:
+                stage, color = "candidate", "#e3a72f"
+                next_step = "Try one phone-depth or LiDAR pass and attach only a local reference path."
+            else:
+                stage, color = "planned", "#8eb8c7"
+                next_step = "Wait until the photo baseline and field note are repeatable."
+        elif item["asset_id"] == "photogrammetry_mesh":
+            stage, color = ("candidate", "#e3a72f") if "photogrammetry" in scan_status else ("planned", "#8eb8c7")
+            next_step = "Generate only a small local preview mesh after source photos are validated."
+        elif item["asset_id"] == "gaussian_splat":
+            stage, color = "future", "#6f7a86"
+            next_step = "Reserve this slot; add a splat only after capture workflow and review need are proven."
+        elif item["asset_id"] == "field_validation":
+            stage = readiness["label"]
+            color = "#2f7d4f" if readiness["score"] >= 72 else "#e3a72f"
+            next_step = "Complete crown score, visible-stress note, species confirmation, and observer fields."
+        slots.append({
+            **item,
+            "stage": stage,
+            "color": color,
+            "path_hint": f"tree_twins/{record['id'].lower()}/{item['path']}",
+            "next_step": next_step,
+        })
+    return slots
+
+
 def extract_tree_twin_id(value: object) -> Optional[str]:
     if value is None:
         return None
@@ -2828,16 +2923,47 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
             mime="text/csv",
         )
     with capture_tab:
+        asset_slots = build_tree_asset_slots(selected, readiness)
+        asset_slot_markup = "".join(
+            f"""
+  <div class="ww-asset-slot" style="--slot:{slot['color']};">
+    <span>{slot['asset_id'].replace('_', ' ')}</span>
+    <strong>{slot['label']}</strong>
+    <div class="ww-asset-status">{slot['stage']}</div>
+    <p>{slot['purpose']}</p>
+    <div class="ww-asset-path">{slot['format']}<br>{slot['path_hint']}</div>
+  </div>
+            """
+            for slot in asset_slots
+        )
+        asset_manifest_df = pd.DataFrame([
+            {
+                "tree_id": selected["id"],
+                "asset_id": slot["asset_id"],
+                "stage": slot["stage"],
+                "expected_artifact": slot["format"],
+                "local_path_hint": slot["path_hint"],
+                "next_step": slot["next_step"],
+            }
+            for slot in asset_slots
+        ])
+        asset_manifest_csv = asset_manifest_df.to_csv(index=False).encode("utf-8")
         st.markdown(f"""
 <div class="ww-field-queue">
   <div class="ww-field-task"><span>Next visit</span><div><strong>{selected['field_note']}</strong>Capture crown condition, trunk/canopy photos, species confirmation, and visible drought, pest, or trail-impact notes.</div></div>
   <div class="ww-field-task"><span>Minimum data</span><div><strong>Tree ID, timestamp, observer, photos, crown score</strong>Enough to turn this from a demo anchor into a repeatable validation record.</div></div>
   <div class="ww-field-task"><span>Model loop</span><div><strong>Compare field health with {selected['stress_score']}/100 prototype score</strong>Use disagreement as model feedback, not as failure.</div></div>
 </div>
-<div class="ww-scan-slot">
-  <span>Future 3D asset slot</span>
-  <strong>{selected['scan_status']}</strong>
-  <p>Placeholder for a later photogrammetry, LiDAR, or Gaussian splat asset tied to {selected['id']}. Keep demo assets local or repository-scale until the cost constraint changes.</p>
+<div class="ww-asset-roadmap">
+  <div class="ww-asset-head">
+    <div>
+      <span>Tree twin asset roadmap</span>
+      <strong>{selected['id']} scan and validation slots</strong>
+      <p>Future scan assets are represented as local manifest slots, not uploads. This keeps the prototype no-cost while showing where photos, LiDAR, photogrammetry, and Gaussian splat files would attach later.</p>
+    </div>
+    <div class="ww-asset-chip">{selected['scan_status']}</div>
+  </div>
+  <div class="ww-asset-grid">{asset_slot_markup}</div>
 </div>
 <div class="ww-gsplat-plan">
   <div class="ww-gsplat-step"><span>Demo lane first</span><strong>Use a small sample scan or placeholder scene to prove the interaction model without new cloud cost.</strong></div>
@@ -2845,6 +2971,13 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
   <div class="ww-gsplat-step"><span>No-cost path</span><strong>Keep prototype assets local or repository-scale until the project explicitly changes its cost constraint.</strong></div>
 </div>
         """, unsafe_allow_html=True)
+        st.dataframe(asset_manifest_df, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download local asset manifest CSV",
+            data=asset_manifest_csv,
+            file_name=f"{selected_id.lower()}_asset_manifest.csv",
+            mime="text/csv",
+        )
 
 
 def render_prediction_summary(prediction_df: pd.DataFrame, climate_signal: dict, projection_year: int, scenario_name: str) -> None:
