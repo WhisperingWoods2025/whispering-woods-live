@@ -52,7 +52,7 @@ AOI_COLOR = "#E3A72F"
 ALPHAEARTH_YEARS = set(range(2017, 2025))
 PREDICTION_STATION_ID = "00856"
 COSTED_USAGE_MODES = {"billable", "commercial", "enterprise", "government_operational", "paid", "production_paid"}
-FORECAST_CAVEAT = "Forecast is an explainable prototype model, not operational risk certification."
+FORECAST_CAVEAT = "Forecast is an explainable prototype model, not an operational risk decision."
 FORECAST_HORIZON_YEARS = 10
 DEFAULT_FORECAST_HORIZON_YEARS = 4
 PREDICTION_DISABLED_LAYERS = {"precipitation", "wind_flow", "cloud_veil", "moisture_flow", "canopy_stress", "weather_sensors"}
@@ -290,6 +290,33 @@ def inject_theme_css() -> None:
 .ww-plan-chip { color:#35513f; background:rgba(220,239,222,.54); border:1px dashed rgba(47,125,79,.24); border-radius:8px; padding:.46rem .5rem; font-size:.78rem; font-weight:730; }
 .ww-selected { border:1px solid rgba(52,120,169,.28); border-radius:8px; padding:.56rem .7rem; background:rgba(52,120,169,.08); color:#204b6b; margin:.56rem 0 .75rem; font-size:.86rem; }
 .ww-method { border:1px solid rgba(26,46,35,.10); border-radius:8px; padding:.86rem .95rem; background:rgba(255,255,255,.78); color:#526055; font-size:.88rem; line-height:1.44; }
+.ww-project-brief { border:1px solid rgba(26,46,35,.12); border-radius:8px; background:linear-gradient(135deg, rgba(255,255,255,.88), rgba(240,247,239,.72)); box-shadow:0 18px 58px rgba(35,53,42,.10); padding:.86rem; margin:.2rem 0 .92rem; }
+.ww-brief-top { display:flex; justify-content:space-between; align-items:flex-start; gap:.9rem; margin-bottom:.72rem; }
+.ww-brief-kicker { color:var(--ww-green); font-size:.7rem; font-weight:820; text-transform:uppercase; letter-spacing:.06em; }
+.ww-brief-title { color:var(--ww-ink); font-size:1.12rem; line-height:1.18; font-weight:830; margin:.12rem 0 .18rem; }
+.ww-brief-copy { color:#5c6a61; font-size:.85rem; line-height:1.38; max-width:820px; }
+.ww-brief-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.34rem; }
+.ww-brief-chip { color:#234435; border:1px solid rgba(47,125,79,.18); border-radius:999px; background:rgba(220,239,222,.62); padding:.28rem .48rem; font-size:.7rem; font-weight:780; white-space:nowrap; }
+.ww-brief-chip.warn { color:#63381c; border-color:rgba(227,167,47,.30); background:rgba(227,167,47,.16); }
+.ww-brief-grid { display:grid; grid-template-columns:1.15fr .95fr; gap:.72rem; }
+.ww-impact-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+.ww-impact-card { border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(255,255,255,.72); padding:.68rem .72rem; min-height:95px; }
+.ww-impact-card span { display:block; color:#718076; font-size:.68rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:.22rem; }
+.ww-impact-card strong { display:block; color:var(--ww-ink); font-size:.98rem; line-height:1.18; margin-bottom:.28rem; }
+.ww-impact-card p { color:#5d6b62; font-size:.8rem; line-height:1.32; margin:0; }
+.ww-twin-card { position:relative; overflow:hidden; border:1px solid rgba(26,46,35,.09); border-radius:8px; background:rgba(18,32,24,.92); color:#eef6ef; min-height:100%; padding:.78rem .82rem; }
+.ww-twin-card:before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 24% 26%, rgba(90,171,111,.26), rgba(90,171,111,0) 34%), radial-gradient(circle at 82% 20%, rgba(52,120,169,.22), rgba(52,120,169,0) 34%); opacity:.9; }
+.ww-twin-content { position:relative; z-index:1; }
+.ww-tree-stand { position:relative; height:86px; margin:.38rem 0 .6rem; border-bottom:1px solid rgba(238,246,239,.22); }
+.ww-tree-node { position:absolute; bottom:0; width:2px; height:var(--h); left:var(--x); background:linear-gradient(180deg, rgba(198,230,194,.94), rgba(71,130,84,.72)); border-radius:999px; }
+.ww-tree-node:before { content:""; position:absolute; left:50%; top:-7px; width:var(--c); height:var(--c); transform:translateX(-50%); border-radius:999px; background:radial-gradient(circle, rgba(186,224,170,.95), rgba(68,150,102,.70)); box-shadow:0 0 18px rgba(108,194,133,.26); }
+.ww-twin-card h3 { position:relative; z-index:1; margin:0 0 .25rem; font-size:.98rem; line-height:1.18; color:#ffffff; }
+.ww-twin-card p { position:relative; z-index:1; margin:0; color:#c9d8cd; font-size:.78rem; line-height:1.35; }
+.ww-twin-steps { position:relative; z-index:1; display:grid; gap:.34rem; margin-top:.62rem; }
+.ww-twin-step { display:flex; justify-content:space-between; gap:.5rem; color:#dfece2; border-top:1px solid rgba(238,246,239,.13); padding-top:.34rem; font-size:.74rem; }
+.ww-twin-step em { color:#95bca1; font-style:normal; font-weight:780; white-space:nowrap; }
+.ww-brief-sources { display:flex; flex-wrap:wrap; gap:.34rem; margin-top:.68rem; }
+.ww-source-chip { color:#506057; background:rgba(255,255,255,.58); border:1px solid rgba(26,46,35,.09); border-radius:999px; padding:.26rem .44rem; font-size:.68rem; font-weight:760; }
 .ww-motion-proof { position:relative; overflow:hidden; border:1px solid rgba(43,95,92,.13); border-radius:8px; min-height:50px; margin:.18rem 0 .56rem; background:linear-gradient(135deg, rgba(247,251,248,.94), rgba(235,245,245,.70)); box-shadow:0 10px 30px rgba(35,53,42,.06); }
 .ww-motion-proof:before { content:""; position:absolute; left:-24%; right:-24%; top:0; height:100%; background:radial-gradient(ellipse at 16% 38%, rgba(255,255,255,.76), rgba(197,217,219,.22) 34%, rgba(197,217,219,0) 58%), repeating-linear-gradient(104deg, rgba(44,116,139,0) 0 38px, rgba(44,116,139,.20) 38px 40px, rgba(255,255,255,.50) 40px 41px, rgba(44,116,139,0) 41px 82px); animation:ww-proof-sweep 7.8s linear infinite; opacity:.62; }
 .ww-motion-proof:after { content:""; position:absolute; left:-18%; bottom:10px; width:42%; height:10px; border-radius:999px; background:linear-gradient(90deg, rgba(15,92,124,0), rgba(15,92,124,.42), rgba(255,255,255,.62), rgba(15,92,124,0)); filter:blur(.2px); animation:ww-proof-cloud 6.2s ease-in-out infinite; opacity:.54; }
@@ -312,7 +339,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -1921,6 +1948,97 @@ def render_observation_summary(period: dict, view_mode: str, layers: dict[str, b
         st.caption("Active evidence: " + ", ".join(active_labels) + f". Weather canvas signal source: {signal['source']}.")
 
 
+def build_project_action(prediction_df: Optional[pd.DataFrame], signal: dict, app_mode: str) -> tuple[str, str, str, str]:
+    if prediction_df is not None and not prediction_df.empty:
+        mean_score = round(float(prediction_df["risk_score"].mean()), 1)
+        high_share = round(float((prediction_df["risk_score"] >= 68).mean() * 100), 0)
+        top = prediction_df.nlargest(1, "risk_score").iloc[0]
+        if mean_score >= 64 or high_share >= 22:
+            action = "Prioritize field review"
+            detail = f"{high_share:.0f}% of sampled cells are high-stress in this prototype surface. Start with {top['reason']}."
+            tone = "warn"
+        elif mean_score >= 46 or high_share >= 8:
+            action = "Keep under watch"
+            detail = f"Mean prototype stress is {mean_score}/100. Compare canopy, water buffers, and recent weather before selecting field routes."
+            tone = "warn"
+        else:
+            action = "Maintain observation"
+            detail = f"Mean prototype stress is {mean_score}/100. Use this as a baseline for future change detection."
+            tone = "ok"
+        return action, detail, f"{mean_score}/100", tone
+
+    stress_pct = round(signal["stress"] * 100)
+    if stress_pct >= 58:
+        return "Open forecast view", "The live context signal is elevated. Use Predictions to see whether terrain, canopy, water, and climate trend point to the same areas.", f"{stress_pct}% signal", "warn"
+    if app_mode == "Predictions":
+        return "Prototype forecast", FORECAST_CAVEAT, f"{stress_pct}% signal", "warn"
+    return "Explore evidence layers", "Turn on canopy, water, tree-cover loss, and habitat layers to move from ambience into decision context.", f"{stress_pct}% signal", "ok"
+
+
+def render_project_impact_brief(area_name: str, app_mode: str, period: dict, signal: dict, readings: list[dict], layers: dict[str, bool], projection_year: int, prediction_df: Optional[pd.DataFrame] = None, climate_signal: Optional[dict] = None) -> None:
+    action, action_detail, stress_value, action_tone = build_project_action(prediction_df, signal, app_mode)
+    moisture_pct = round(signal["moisture"] * 100)
+    source = signal.get("source", "selected evidence")
+    nearest = readings[0]["name"] if readings else "seasonal fallback"
+    climate_copy = "DWD annual climate trend" if climate_signal else source
+    target_label = f"Today to {projection_year}" if app_mode == "Predictions" else period["label"]
+    forecast_badge = "Prototype forecast" if prediction_df is not None and not prediction_df.empty else "Evidence canvas"
+    chips = [
+        "WDPA boundary",
+        "DWD weather/climate",
+        "Earth Engine public layers",
+        "Prototype stress model" if prediction_df is not None and not prediction_df.empty else "Layer exploration",
+        "Tree twin path",
+    ]
+    chip_markup = "".join(f"<span class='ww-source-chip'>{chip}</span>" for chip in chips)
+    tree_nodes = "".join(
+        f"<i class='ww-tree-node' style='--x:{8 + idx * 7}%;--h:{34 + (idx % 5) * 9}px;--c:{12 + (idx % 4) * 4}px;'></i>"
+        for idx in range(12)
+    )
+    action_class = "ww-brief-chip warn" if action_tone == "warn" else "ww-brief-chip"
+    st.markdown(f"""
+<div class="ww-project-brief">
+  <div class="ww-brief-top">
+    <div>
+      <div class="ww-brief-kicker">Impact brief</div>
+      <div class="ww-brief-title">{area_name}</div>
+      <div class="ww-brief-copy">A conservation-oriented digital twin view for reading forest condition, monitoring priorities, and the next evidence needed at tree level.</div>
+    </div>
+    <div class="ww-brief-status">
+      <span class="ww-brief-chip">{forecast_badge}</span>
+      <span class="{action_class}">{action}</span>
+      <span class="ww-brief-chip warn">Field validation needed</span>
+    </div>
+  </div>
+  <div class="ww-brief-grid">
+    <div>
+      <div class="ww-impact-grid">
+        <div class="ww-impact-card"><span>Decision window</span><strong>{target_label}</strong><p>Use the selected time or forecast horizon to frame what should be inspected next, not as an operational decision by itself.</p></div>
+        <div class="ww-impact-card"><span>Forest stress</span><strong>{stress_value}</strong><p>{action_detail}</p></div>
+        <div class="ww-impact-card"><span>Water and moisture</span><strong>{moisture_pct}% context</strong><p>Moisture and recurring water help explain where stress may be buffered or where dry slopes need closer attention.</p></div>
+        <div class="ww-impact-card"><span>Evidence confidence</span><strong>Real + prototype</strong><p>{climate_copy}; nearest station context: {nearest}. Individual-tree data is still planned.</p></div>
+      </div>
+      <div class="ww-brief-sources">{chip_markup}</div>
+    </div>
+    <div class="ww-twin-card">
+      <div class="ww-twin-content">
+        <div class="ww-brief-kicker">Tree digital twin</div>
+        <h3>From stand-level evidence to individual-tree memory</h3>
+        <p>The current app reads the forest as layers. The next product step is a tree register that can later anchor scans, health notes, and Gaussian splat visual assets.</p>
+        <div class="ww-tree-stand">{tree_nodes}</div>
+        <div class="ww-twin-steps">
+          <div class="ww-twin-step"><span>Canopy, water, terrain, climate</span><em>live now</em></div>
+          <div class="ww-twin-step"><span>Species, height, crown condition, field notes</span><em>next</em></div>
+          <div class="ww-twin-step"><span>LiDAR/photogrammetry and Gaussian splat scenes</span><em>later</em></div>
+          <div class="ww-twin-step"><span>Forecast feedback from observed tree health</span><em>validate</em></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    """, unsafe_allow_html=True)
+
+
 def render_prediction_summary(prediction_df: pd.DataFrame, climate_signal: dict, projection_year: int, scenario_name: str) -> None:
     if prediction_df.empty:
         return
@@ -1982,7 +2100,7 @@ def build_insight_items(view_mode: str, year: int, period: dict, layers: dict[st
     if layers.get("tree_loss"):
         items.append(("Forest change", "Cumulative loss", "The red layer marks Hansen tree-cover loss up to the selected year."))
     if layers.get("canopy_stress"):
-        items.append(("Forest stress signal", f"{round(signal['stress'] * 100)}% prototype", "The stress signal is a visual prototype, not a certified hazard layer."))
+        items.append(("Forest stress signal", f"{round(signal['stress'] * 100)}% prototype", "The stress signal is a visual prototype, not a field-validated hazard layer."))
     for note in notes[:2]:
         items.append(("Data note", "Coverage", note))
     return items[:6]
@@ -2102,6 +2220,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
     render_map_selection(map_state)
+    render_project_impact_brief(area_name, app_mode="Map", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
@@ -2113,6 +2232,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
 def render_predictions_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+    render_project_impact_brief(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     forecast_label = f"Today -> {projection_year}"
     map_layers = dict(layers)
     map_layers["prediction"] = False
@@ -2133,10 +2253,11 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
-def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], readings: list[dict]) -> None:
+def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], signal: dict, readings: list[dict]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     sensor_df = build_sensor_frame(year, period, readings)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+    render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers={"prediction": True}, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     render_map_heading(f"{period['label']} -> {projection_year}", [("Risk columns", "#ce6858"), ("Terrain", "#449666"), ("Stations", "#3478a9"), ("Soil probes", "#e3a72f")], "Berchtesgaden National Park", title="3D forest view")
     render_3d_view(prediction_df, sensor_df, center, height_mode)
     if prediction_note:
@@ -2183,7 +2304,7 @@ def main() -> None:
         elif app_mode == "Predictions":
             render_predictions_mode(year, period, projection_year, scenario_name, basemap, layers, signal, readings, unavailable, aoi, area_name, center, bounds)
         else:
-            render_3d_mode(year, period, projection_year, scenario_name, height_mode, bounds, center, readings)
+            render_3d_mode(year, period, projection_year, scenario_name, height_mode, bounds, center, signal, readings)
 
 
 if __name__ == "__main__":
