@@ -415,7 +415,7 @@ def inject_theme_css() -> None:
 .ww-tree-profile > * { position:relative; z-index:1; }
 .ww-tree-profile h3 { margin:0 0 .18rem; color:#fff; font-size:1rem; line-height:1.2; }
 .ww-tree-profile p { margin:0; color:#ccdbd0; font-size:.8rem; line-height:1.38; }
-.ww-tree-profile-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.36rem; margin:.66rem 0; }
+.ww-tree-profile-meta { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.36rem; margin:.66rem 0; }
 .ww-tree-profile-meta span { border:1px solid rgba(238,246,239,.13); border-radius:8px; padding:.42rem .46rem; color:#eaf4ed; font-size:.76rem; }
 .ww-tree-profile-meta em { display:block; color:#92b89e; font-style:normal; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.12rem; }
 .ww-tree-silhouette { position:relative; height:116px; margin:.58rem 0 .72rem; border-bottom:1px solid rgba(238,246,239,.18); }
@@ -426,6 +426,26 @@ def inject_theme_css() -> None:
 .ww-tree-detail { display:grid; gap:.42rem; }
 .ww-tree-detail-row { display:flex; justify-content:space-between; gap:.7rem; border-bottom:1px solid rgba(26,46,35,.08); padding:.46rem 0; color:#526057; font-size:.8rem; }
 .ww-tree-detail-row strong { color:var(--ww-ink); text-align:right; }
+.ww-tree-focus { display:grid; gap:.54rem; }
+.ww-tree-focus-note { border:1px solid rgba(47,125,79,.16); border-radius:8px; padding:.56rem .64rem; background:rgba(220,239,222,.48); color:#35513f; font-size:.82rem; line-height:1.36; }
+.ww-tree-gauge { border:1px solid rgba(26,46,35,.08); border-radius:8px; padding:.56rem .62rem; background:rgba(255,255,255,.68); }
+.ww-tree-gauge-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin:.18rem 0 .42rem; color:#526057; font-size:.8rem; }
+.ww-tree-gauge-row strong { color:var(--ww-ink); }
+.ww-driver-meter { height:5px; border-radius:999px; background:rgba(26,46,35,.10); overflow:hidden; }
+.ww-driver-meter i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#2f7d4f,#e3a72f,#ce6858); }
+.ww-tree-driver-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.46rem; margin-top:.48rem; }
+.ww-tree-driver { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem; min-height:96px; color:#59675e; font-size:.8rem; line-height:1.34; }
+.ww-tree-driver span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.12rem; }
+.ww-tree-driver strong { display:block; color:var(--ww-ink); font-size:.92rem; line-height:1.18; margin-bottom:.18rem; }
+.ww-field-queue { display:grid; gap:.46rem; margin-top:.35rem; }
+.ww-field-task { display:grid; grid-template-columns:104px 1fr; gap:.56rem; align-items:start; border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.70); padding:.58rem .62rem; color:#5e6c63; font-size:.8rem; line-height:1.34; }
+.ww-field-task span { color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; }
+.ww-field-task strong { display:block; color:var(--ww-ink); margin-bottom:.12rem; }
+.ww-scan-slot { position:relative; overflow:hidden; border:1px dashed rgba(52,120,169,.28); border-radius:8px; min-height:150px; padding:.78rem .82rem; background:linear-gradient(135deg, rgba(235,244,248,.82), rgba(255,255,255,.70)); color:#47616d; }
+.ww-scan-slot:before { content:""; position:absolute; inset:14px; border-radius:8px; background:repeating-linear-gradient(90deg, rgba(52,120,169,.16) 0 1px, rgba(52,120,169,0) 1px 18px), repeating-linear-gradient(0deg, rgba(47,125,79,.12) 0 1px, rgba(47,125,79,0) 1px 18px); opacity:.48; }
+.ww-scan-slot > * { position:relative; z-index:1; }
+.ww-scan-slot span { display:block; color:#3478a9; font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.18rem; }
+.ww-scan-slot strong { display:block; color:#1f4f63; font-size:1rem; margin-bottom:.2rem; }
 .ww-memory-list { display:grid; gap:.42rem; margin-top:.1rem; }
 .ww-memory-item { border:1px solid rgba(26,46,35,.08); border-radius:8px; background:rgba(255,255,255,.68); padding:.58rem .64rem; color:#5c6a61; font-size:.8rem; line-height:1.34; }
 .ww-memory-item span { display:block; color:var(--ww-green); font-size:.66rem; font-weight:820; letter-spacing:.05em; text-transform:uppercase; margin-bottom:.12rem; }
@@ -456,7 +476,7 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-cloud { from { transform:translate3d(0,0,0) scaleX(.94); } to { transform:translate3d(182%,0,0) scaleX(1.08); } }
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
-@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-panel { position:static; } }
+@media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-gsplat-plan { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -1818,7 +1838,23 @@ def build_weather_table(readings: list[dict]) -> pd.DataFrame:
     ])
 
 
-def build_sensor_frame(year: int, period: dict, readings: list[dict]) -> pd.DataFrame:
+def twin_status_color(status: str) -> str:
+    if status == "watch closely":
+        return "#ce6858"
+    if status == "monitor":
+        return "#e3a72f"
+    return "#2f7d4f"
+
+
+def twin_status_rgba(status: str) -> list[int]:
+    if status == "watch closely":
+        return [206, 104, 88, 235]
+    if status == "monitor":
+        return [227, 167, 47, 230]
+    return [47, 125, 79, 230]
+
+
+def build_sensor_frame(year: int, period: dict, readings: list[dict], signal: Optional[dict] = None, prediction_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     rows = []
     for reading in readings:
         rows.append({"name": reading["name"], "kind": "DWD weather", "lat": reading["lat"], "lon": reading["lon"], "elevation": reading["elevation"], "color": [52, 120, 169, 220], "radius": 170, "tooltip": f"{format_number(reading['mean_temp'], ' C')} | {format_number(reading['precipitation'], ' mm')} precip"})
@@ -1826,6 +1862,18 @@ def build_sensor_frame(year: int, period: dict, readings: list[dict]) -> pd.Data
     for site in SOIL_SENSOR_SITES:
         reading = estimate_soil_reading(site, year, day_of_year)
         rows.append({"name": site["name"], "kind": "Prototype soil probe", "lat": site["lat"], "lon": site["lon"], "elevation": site["elevation"], "color": [227, 167, 47, 230], "radius": 145, "tooltip": f"{reading['soil_moisture']}% moisture | pH {reading['ph']}"})
+    if signal is not None:
+        for twin in build_tree_twin_records(signal, prediction_df, readings):
+            rows.append({
+                "name": f"{twin['id']} | {twin['name']}",
+                "kind": "Tree twin anchor",
+                "lat": twin["lat"],
+                "lon": twin["lon"],
+                "elevation": twin["elevation"],
+                "color": twin_status_rgba(twin["status"]),
+                "radius": 220,
+                "tooltip": f"{twin['status']} | stress {twin['stress_score']}/100 | {twin['scan_status']}",
+            })
     return pd.DataFrame(rows)
 
 
@@ -2286,20 +2334,78 @@ def build_tree_twin_records(signal: dict, prediction_df: Optional[pd.DataFrame],
     return records
 
 
-def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signal: dict, readings: list[dict], prediction_df: Optional[pd.DataFrame] = None) -> None:
+def extract_tree_twin_id(value: object) -> Optional[str]:
+    if value is None:
+        return None
+    match = re.search(r"\bWW-T\d+\b", str(value))
+    return match.group(0) if match else None
+
+
+def add_tree_twin_markers(m: folium.Map, signal: dict, readings: list[dict], prediction_df: Optional[pd.DataFrame] = None) -> None:
+    records = build_tree_twin_records(signal, prediction_df, readings)
+    if not records:
+        return
+    group = folium.FeatureGroup(name="Tree twin anchors", show=True)
+    for twin in records:
+        color = twin_status_color(twin["status"])
+        popup_html = f"""
+        <strong>{twin['id']} | {twin['name']}</strong><br>
+        {twin['zone']}<br>
+        Status: {twin['status']}<br>
+        Stress: {twin['stress_score']}/100<br>
+        Moisture: {twin['moisture_score']:.0f}%<br>
+        Scan: {twin['scan_status']}<br>
+        Next: {twin['field_note']}
+        """
+        folium.CircleMarker(
+            location=[twin["lat"], twin["lon"]],
+            radius=7.5,
+            color="#122018",
+            weight=1.2,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.92,
+            tooltip=f"Tree twin {twin['id']}: {twin['name']}",
+            popup=folium.Popup(popup_html, max_width=360),
+        ).add_to(group)
+    group.add_to(m)
+
+
+def get_map_selected_tree_twin_id(map_state: Optional[dict]) -> Optional[str]:
+    if not isinstance(map_state, dict):
+        return None
+    return extract_tree_twin_id(map_state.get("last_object_clicked_tooltip")) or extract_tree_twin_id(map_state.get("last_object_clicked_popup"))
+
+
+def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signal: dict, readings: list[dict], prediction_df: Optional[pd.DataFrame] = None, selected_tree_id: Optional[str] = None) -> None:
     records = build_tree_twin_records(signal, prediction_df, readings)
     if not records:
         return
     select_key = f"tree_twin_anchor_{app_mode.lower().replace(' ', '_')}"
-    selected = st.selectbox("Tree twin anchor", records, format_func=lambda item: f"{item['id']} | {item['name']}", key=select_key)
+    record_map = {record["id"]: record for record in records}
+    if selected_tree_id in record_map:
+        st.session_state[select_key] = selected_tree_id
+    elif not isinstance(st.session_state.get(select_key), str) or st.session_state.get(select_key) not in record_map:
+        st.session_state[select_key] = records[0]["id"]
+    selected_id = st.selectbox("Tree twin anchor", list(record_map.keys()), format_func=lambda twin_id: f"{twin_id} | {record_map[twin_id]['name']}", key=select_key)
+    selected = record_map[selected_id]
     status_class = "watch" if selected["status"] == "watch closely" else "monitor" if selected["status"] == "monitor" else "reference"
+    selection_note = "Selected from map." if selected_tree_id == selected_id else "Select a tree anchor here or click one on the map."
+    moisture_copy = "Water-buffered context" if selected["moisture_score"] >= 62 else "Moisture deficit watch" if selected["moisture_score"] <= 38 else "Moderate moisture context"
+    stress_copy = "High-priority validation" if selected["stress_score"] >= 68 else "Monitor through next field cycle" if selected["stress_score"] >= 48 else "Reference baseline candidate"
+    driver_markup = "".join([
+        f"<div class='ww-tree-driver'><span>Prototype stress</span><strong>{selected['stress_score']}/100</strong>{stress_copy}. {selected['evidence_note']}</div>",
+        f"<div class='ww-tree-driver'><span>Moisture context</span><strong>{selected['moisture_score']:.0f}%</strong>{moisture_copy}; compare with nearby water and soil probe context.</div>",
+        f"<div class='ww-tree-driver'><span>Stand exposure</span><strong>{selected['elevation']} m</strong>{selected['zone']}; {selected['crown']}.</div>",
+        f"<div class='ww-tree-driver'><span>Validation state</span><strong>{selected['scan_status']}</strong>Needs field evidence before this becomes a trusted individual-tree record.</div>",
+    ])
     st.markdown(f"""
 <div class="ww-tree-register">
   <div class="ww-tree-register-head">
     <div>
       <div class="ww-brief-kicker">Tree digital twin prototype</div>
-      <div class="ww-tree-register-title">Individual-tree memory layer</div>
-      <div class="ww-tree-register-copy">A first register for connecting canopy, weather, terrain, field notes, and later scan assets to selected tree anchors in {area_name}.</div>
+      <div class="ww-tree-register-title">Selected tree memory layer</div>
+      <div class="ww-tree-register-copy">A first register for connecting canopy, weather, terrain, field notes, and later scan assets to selected tree anchors in {area_name}. {selection_note}</div>
     </div>
     <span class="ww-brief-chip {status_class}">{selected['status']}</span>
   </div>
@@ -2314,35 +2420,54 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
         <span><em>Scan</em>{selected['scan_status']}</span>
       </div>
     </div>
-    <div class="ww-tree-detail">
-      <div class="ww-tree-detail-row"><span>Species mix</span><strong>{selected['species']}</strong></div>
-      <div class="ww-tree-detail-row"><span>Crown signal</span><strong>{selected['crown']}</strong></div>
-      <div class="ww-tree-detail-row"><span>Elevation</span><strong>{selected['elevation']} m</strong></div>
-      <div class="ww-tree-detail-row"><span>Nearest weather context</span><strong>{selected['nearest_station']}</strong></div>
-      <div class="ww-tree-detail-row"><span>Evidence note</span><strong>{selected['evidence_note']}</strong></div>
-      <div class="ww-tree-detail-row"><span>Next field note</span><strong>{selected['field_note']}</strong></div>
+    <div class="ww-tree-focus">
+      <div class="ww-tree-focus-note">This is a prototype tree-level memory card. It links public environmental evidence to a stable tree anchor, then asks what field observation is needed next.</div>
+      <div class="ww-tree-gauge">
+        <div class="ww-tree-gauge-row"><span>Forest stress signal</span><strong>{selected['stress_score']}/100</strong></div>
+        <div class="ww-driver-meter"><i style="width:{selected['stress_score']}%;"></i></div>
+      </div>
+      <div class="ww-tree-gauge">
+        <div class="ww-tree-gauge-row"><span>Moisture context</span><strong>{selected['moisture_score']:.0f}%</strong></div>
+        <div class="ww-driver-meter"><i style="width:{selected['moisture_score']:.0f}%;background:linear-gradient(90deg,#ce6858,#e3a72f,#3ca7a6);"></i></div>
+      </div>
+      <div class="ww-tree-detail">
+        <div class="ww-tree-detail-row"><span>Species mix</span><strong>{selected['species']}</strong></div>
+        <div class="ww-tree-detail-row"><span>Nearest weather context</span><strong>{selected['nearest_station']}</strong></div>
+        <div class="ww-tree-detail-row"><span>Next field note</span><strong>{selected['field_note']}</strong></div>
+      </div>
     </div>
   </div>
 </div>
     """, unsafe_allow_html=True)
 
-    memory_tab, evidence_tab, capture_tab = st.tabs(["Tree memory", "Evidence", "3D capture"])
+    memory_tab, evidence_tab, capture_tab = st.tabs(["Memory", "Why this score", "3D capture"])
     with memory_tab:
         st.markdown(f"""
 <div class="ww-memory-list">
   <div class="ww-memory-item"><span>Live now</span><strong>{period['label']}</strong><p>Public Earth Engine layers, DWD weather context, and prototype soil probes describe the surrounding stand.</p></div>
-  <div class="ww-memory-item"><span>Next field visit</span><strong>{selected['id']}</strong><p>Capture crown condition, trunk/canopy photos, species confirmation, and any visible drought, pest, or trail-impact notes.</p></div>
+  <div class="ww-memory-item"><span>Identity</span><strong>{selected['id']}</strong><p>{selected['name']} in {selected['zone']} at {selected['lat']:.3f}, {selected['lon']:.3f}.</p></div>
   <div class="ww-memory-item"><span>Feedback loop</span><strong>Validation queue</strong><p>Observed tree health can later tune the prototype stress score instead of treating the current model as a final answer.</p></div>
 </div>
         """, unsafe_allow_html=True)
     with evidence_tab:
+        st.markdown(f"<div class='ww-tree-driver-grid'>{driver_markup}</div>", unsafe_allow_html=True)
         st.dataframe(
             pd.DataFrame(records)[["id", "name", "zone", "species", "stress_score", "moisture_score", "status", "scan_status", "nearest_station"]],
             use_container_width=True,
             hide_index=True,
         )
     with capture_tab:
-        st.markdown("""
+        st.markdown(f"""
+<div class="ww-field-queue">
+  <div class="ww-field-task"><span>Next visit</span><div><strong>{selected['field_note']}</strong>Capture crown condition, trunk/canopy photos, species confirmation, and visible drought, pest, or trail-impact notes.</div></div>
+  <div class="ww-field-task"><span>Minimum data</span><div><strong>Tree ID, timestamp, observer, photos, crown score</strong>Enough to turn this from a demo anchor into a repeatable validation record.</div></div>
+  <div class="ww-field-task"><span>Model loop</span><div><strong>Compare field health with {selected['stress_score']}/100 prototype score</strong>Use disagreement as model feedback, not as failure.</div></div>
+</div>
+<div class="ww-scan-slot">
+  <span>Future 3D asset slot</span>
+  <strong>{selected['scan_status']}</strong>
+  <p>Placeholder for a later photogrammetry, LiDAR, or Gaussian splat asset tied to {selected['id']}. Keep demo assets local or repository-scale until the cost constraint changes.</p>
+</div>
 <div class="ww-gsplat-plan">
   <div class="ww-gsplat-step"><span>Demo lane first</span><strong>Use a small sample scan or placeholder scene to prove the interaction model without new cloud cost.</strong></div>
   <div class="ww-gsplat-step"><span>Field capture later</span><strong>Attach phone video, photogrammetry, or LiDAR assets to stable tree IDs after the register is validated.</strong></div>
@@ -2391,6 +2516,7 @@ def get_enabled_labels(layers: dict[str, bool]) -> list[tuple[str, str]]:
         ("soil_sensors", "Soil points", "#e3a72f"),
     ]
     labels = [(label, color) for layer_id, label, color in label_specs if layers.get(layer_id)]
+    labels.append(("Tree twins", "#2f7d4f"))
     return labels or [("Park boundary", AOI_COLOR)]
 
 
@@ -2418,16 +2544,21 @@ def build_insight_items(view_mode: str, year: int, period: dict, layers: dict[st
     return items[:6]
 
 
-def render_map_selection(map_state: Optional[dict]) -> None:
+def render_map_selection(map_state: Optional[dict]) -> Optional[str]:
     if not isinstance(map_state, dict):
-        return
+        return None
     clicked = map_state.get("last_object_clicked_tooltip") or map_state.get("last_object_clicked_popup")
     if clicked:
+        clicked_tree_id = get_map_selected_tree_twin_id(map_state)
+        if clicked_tree_id:
+            st.markdown(f"<div class='ww-selected'><strong>Selected tree twin:</strong> {clicked_tree_id}. The tree memory panel below follows this anchor.</div>", unsafe_allow_html=True)
+            return clicked_tree_id
         st.markdown(f"<div class='ww-selected'><strong>Selected on map:</strong> {clicked}</div>", unsafe_allow_html=True)
-        return
+        return None
     last_clicked = map_state.get("last_clicked")
     if isinstance(last_clicked, dict) and "lat" in last_clicked and "lng" in last_clicked:
         st.markdown(f"<div class='ww-selected'><strong>Map point:</strong> {last_clicked['lat']:.5f}, {last_clicked['lng']:.5f}</div>", unsafe_allow_html=True)
+    return None
 
 
 def render_prediction_evidence(prediction_df: pd.DataFrame, climate_signal: dict, scenario_name: str, projection_year: int) -> None:
@@ -2498,12 +2629,16 @@ def render_evidence_board(year: int, period: dict, view_mode: str, layers: dict[
 def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> pdk.Deck:
     terrain_df = prediction_df.copy()
     terrain_df["height"] = terrain_df["height_terrain"] if height_mode == "Terrain" else terrain_df["height_risk"]
+    terrain_df["name"] = terrain_df["risk_label"]
+    terrain_df["tooltip"] = ""
     terrain_df["deck_tooltip"] = terrain_df.apply(lambda row: f"{row['risk_label']} stress: {row['risk_score']}/100<br>{row['reason']}<br>Elevation {row['elevation']:.0f} m", axis=1)
     layers = [pdk.Layer("ColumnLayer", data=terrain_df, get_position="[lon, lat]", get_elevation="height", get_fill_color="color", radius=120, coverage=0.82, pickable=True, auto_highlight=True)]
     if not sensor_df.empty:
-        layers.append(pdk.Layer("ScatterplotLayer", data=sensor_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
+        point_df = sensor_df.copy()
+        point_df["deck_tooltip"] = ""
+        layers.append(pdk.Layer("ScatterplotLayer", data=point_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
     view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.7, pitch=58, bearing=-28)
-    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=layers, tooltip={"html": "<b>{name}{risk_label}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
+    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=layers, tooltip={"html": "<b>{name}</b><br>{tooltip}{deck_tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
 
 
 def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str) -> None:
@@ -2524,6 +2659,7 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
             add_prediction_surface_overlay(m, prediction_df)
             if prediction_note:
                 notes.append(prediction_note)
+        add_tree_twin_markers(m, signal, readings, prediction_df)
         add_aoi_boundary(m, aoi, area_name)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
@@ -2531,9 +2667,9 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     render_weather_motion_proof(layers, signal)
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
-    render_map_selection(map_state)
+    selected_tree_id = render_map_selection(map_state)
     render_project_impact_brief(area_name, app_mode="Map", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
-    render_tree_twin_register(area_name, app_mode="Map", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
+    render_tree_twin_register(area_name, app_mode="Map", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
     captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
@@ -2546,7 +2682,6 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
     render_project_impact_brief(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
-    render_tree_twin_register(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
     forecast_label = f"Today -> {projection_year}"
     map_layers = dict(layers)
     map_layers["prediction"] = False
@@ -2554,26 +2689,28 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
         m = build_map(center, bounds, basemap)
         _, notes = add_selected_layers(m, year, period, signal, aoi, bounds, map_layers, readings, unavailable)
         add_prediction_surface_overlay(m, prediction_df)
+        add_tree_twin_markers(m, signal, readings, prediction_df)
         add_aoi_boundary(m, aoi, area_name)
         if prediction_note:
             notes.append(prediction_note)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the prediction map.", exc)
     folium.LayerControl(position="topright", collapsed=True).add_to(m)
-    render_map_heading(forecast_label, [("Predicted stress", "#ce6858"), ("Moisture", "#3ca7a6"), ("Wind", "#8eb8c7")], area_name, title="Forecast surface")
+    render_map_heading(forecast_label, [("Predicted stress", "#ce6858"), ("Moisture", "#3ca7a6"), ("Wind", "#8eb8c7"), ("Tree twins", "#2f7d4f")], area_name, title="Forecast surface")
     map_state = st_folium(m, width=None, height=660)
-    render_map_selection(map_state)
+    selected_tree_id = render_map_selection(map_state)
     st.caption(" ".join(notes) if notes else "Prediction is calculated in-app from public read-only layers and local DWD observations.")
+    render_tree_twin_register(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
     render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
 def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], signal: dict, readings: list[dict]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
-    sensor_df = build_sensor_frame(year, period, readings)
+    sensor_df = build_sensor_frame(year, period, readings, signal, prediction_df)
     render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
     render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers={"prediction": True}, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
-    render_map_heading(f"{period['label']} -> {projection_year}", [("Risk columns", "#ce6858"), ("Terrain", "#449666"), ("Stations", "#3478a9"), ("Soil probes", "#e3a72f")], "Berchtesgaden National Park", title="3D forest view")
+    render_map_heading(f"{period['label']} -> {projection_year}", [("Risk columns", "#ce6858"), ("Terrain", "#449666"), ("Stations", "#3478a9"), ("Soil probes", "#e3a72f"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
     render_3d_view(prediction_df, sensor_df, center, height_mode)
     if prediction_note:
         st.caption(prediction_note)
