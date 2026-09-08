@@ -617,6 +617,15 @@ def inject_theme_css() -> None:
 [data-testid="stPopoverBody"] [data-testid="stSlider"] [data-testid="stMarkdownContainer"] p { color:#203b36!important; }
 [data-testid="stPopoverBody"] [role="slider"] { background:#337e79!important; border:3px solid #fff; box-shadow:0 2px 6px #203b3626; }
 [data-testid="stPopoverBody"] [data-testid="stExpander"] { border-radius:14px; border:1px solid #dae4e4; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"], [data-testid="stPopoverBody"] [data-testid="stToggle"] { padding:10px 12px; border-radius:14px; background:rgba(255,255,255,.62); border:1px solid rgba(255,255,255,.9); box-shadow:inset 0 1px 0 #fff,0 3px 10px #203b3608; margin:4px 0; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"]:has(input:checked), [data-testid="stPopoverBody"] [data-testid="stToggle"]:has(input:checked) { background:rgba(223,240,238,.82); border-color:#b7d8d2; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"] label, [data-testid="stPopoverBody"] [data-testid="stToggle"] label { display:flex; flex-direction:row-reverse; justify-content:space-between; width:100%; gap:14px; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"] label p, [data-testid="stPopoverBody"] [data-testid="stToggle"] label p { font-weight:500!important; color:#24443f!important; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"]:has(input:disabled), [data-testid="stPopoverBody"] [data-testid="stToggle"]:has(input:disabled) { opacity:.45; }
+[data-testid="stPopoverBody"] [data-testid="stExpander"] details > summary { padding:12px; font-weight:500; }
+[data-testid="stPopoverBody"] [data-testid="stElementContainer"]:has([data-testid="stToggle"]) { width:100%!important; }
+[data-testid="stPopoverBody"] [data-testid="stToggle"] { width:100%; box-sizing:border-box; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label { min-width:92px; white-space:normal; }
 [data-testid="stPopoverBody"] [data-testid="stTextArea"] textarea { background:#f4f8f9; border-radius:12px; color:#203b36; }
 .stTabs [data-baseweb="tab"] { border:0; background:transparent; border-radius:16px; color:#526760; font-weight:500; }
 .stTabs [data-baseweb="tab"][aria-selected="true"] { background:#e5f0ef; color:#235f59; }
@@ -1558,7 +1567,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     seed = (int(signal["wind_direction"]) + int(float(signal["precipitation"] or 0) * 10)) / 57.0
     wind = clamp(float(signal["wind"] or 0) / 9, 0, 1)
     cloud_dx, cloud_dy = screen_motion_vector(float(signal["wind_direction"]), 90 + wind * 120)
-    css_angle = 90 - float(signal["wind_direction"])
+    css_angle = 90 + float(signal["wind_direction"])
 
     payload = {
         "clouds": [],
@@ -1566,7 +1575,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
         "rain": [],
         "stage": {
             "cloud": bool(layers.get("cloud_veil")),
-            "wind": bool(layers.get("wind_flow")),
+            "wind": bool(layers.get("wind_flow") or layers.get("precipitation")),
             "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.01),
             "moisture": bool(layers.get("moisture_flow")),
             "angle": round(css_angle, 1),
@@ -1706,50 +1715,59 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
   badge.innerHTML = "<i></i><span>weather flow</span>";
   function addWindStreamfield() {
-    const svgNS = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(svgNS, "svg");
-    svg.setAttribute("class", "ww-wind-streamfield");
-    svg.setAttribute("viewBox", "0 0 100 100");
-    svg.setAttribute("preserveAspectRatio", "none");
-    svg.style.setProperty("--angle", payload.stage.angle + "deg");
-    const count = Math.round(58 + payload.stage.wind_strength * 28);
-    for (let idx = 0; idx < count; idx += 1) {
-      const col = idx % 8;
-      const row = Math.floor(idx / 8);
-      const x = -14 + col * 16 + ((idx * 13 + payload.stage.seed * 11) % 7);
-      const y = -4 + row * 12 + ((idx * 17 + payload.stage.seed * 9) % 8);
-      const sweep = 22 + (idx % 5) * 4 + payload.stage.wind_strength * 8;
-      const bend = ((idx % 6) - 2.5) * 1.4 + Math.sin(idx + payload.stage.seed) * 3.4;
-      const d = [
-        "M", x.toFixed(2), y.toFixed(2),
-        "C", (x + sweep * .28).toFixed(2), (y - bend).toFixed(2),
-        (x + sweep * .66).toFixed(2), (y + bend * .55).toFixed(2),
-        (x + sweep).toFixed(2), (y + bend * .18).toFixed(2)
-      ].join(" ");
-      const path = document.createElementNS(svgNS, "path");
-      path.setAttribute("d", d);
-      path.style.setProperty("--speed", (10.8 - payload.stage.wind_strength * 2.4 + (idx % 7) * .42).toFixed(2) + "s");
-      path.style.setProperty("--delay", (-idx * .14).toFixed(2) + "s");
-      svg.appendChild(path);
+    addWindParticles();
+  }
+  function addWindParticles() {
+    const canvas = L.DomUtil.create("canvas", "ww-wind-particles", stage);
+    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none";
+    const ctx = canvas.getContext("2d");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let width = 0, height = 0, particles = [], frame = 0, previous = 0;
+    const angle = payload.stage.angle * Math.PI / 180;
+    const speed = 9 + payload.stage.wind_strength * 48;
+    function reset(p) {
+      p.x = Math.random() * width; p.y = Math.random() * height;
+      p.age = 0; p.life = 1.2 + Math.random() * 2.8; p.trail = [];
+      return p;
     }
-    const curls = [[20,22,8], [74,24,6], [34,72,7], [82,78,9]];
-    curls.forEach(function(item, idx) {
-      const cx = item[0], cy = item[1], r = item[2];
-      const path = document.createElementNS(svgNS, "path");
-      path.setAttribute("d", [
-        "M", (cx - r).toFixed(2), cy.toFixed(2),
-        "C", (cx - r * .3).toFixed(2), (cy - r * 1.2).toFixed(2),
-        (cx + r * 1.2).toFixed(2), (cy - r * .8).toFixed(2),
-        (cx + r * .8).toFixed(2), cy.toFixed(2),
-        "C", (cx + r * .4).toFixed(2), (cy + r * .8).toFixed(2),
-        (cx - r * .6).toFixed(2), (cy + r * .45).toFixed(2),
-        (cx - r * .2).toFixed(2), (cy - r * .08).toFixed(2)
-      ].join(" "));
-      path.style.setProperty("--speed", (11.5 + idx * .7).toFixed(2) + "s");
-      path.style.setProperty("--delay", (-idx * 1.25).toFixed(2) + "s");
-      svg.appendChild(path);
-    });
-    stage.appendChild(svg);
+    function resize() {
+      width = container.clientWidth; height = container.clientHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = width * dpr; canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      particles = Array.from({length:Math.min(850, Math.max(120, Math.round(width * height / 1600)))}, () => {
+        const p = reset({}); p.age = Math.random() * p.life; return p;
+      });
+    }
+    function draw(now) {
+      if (!canvas.isConnected) { cleanup(); return; }
+      const dt = Math.min((now - previous) / 1000 || .016, .05); previous = now;
+      ctx.clearRect(0, 0, width, height);
+      if (!document.hidden && !reduced.matches) {
+        particles.forEach(p => {
+          p.age += dt;
+          if (p.age > p.life || p.x < -20 || p.x > width+20 || p.y < -20 || p.y > height+20) reset(p);
+          // Small visual curvature, not a claim of measured local turbulence.
+          const bend = .10 * Math.sin(p.x / 220 + p.y / 310);
+          p.x += Math.cos(angle + bend) * speed * dt;
+          p.y += Math.sin(angle + bend) * speed * dt;
+          p.trail.push([p.x,p.y]); if (p.trail.length > 55) p.trail.shift();
+          const fade = Math.min(1,p.age/.4,(p.life-p.age)/.6);
+          if (p.trail.length < 2) return;
+          ctx.beginPath(); p.trail.forEach((point,i) => i ? ctx.lineTo(...point) : ctx.moveTo(...point));
+          ctx.lineCap = "round";
+          ctx.strokeStyle = "rgba(24,83,108," + (.38*fade) + ")"; ctx.lineWidth=1.8; ctx.stroke();
+          ctx.strokeStyle = "rgba(223,249,255," + (.9*fade) + ")"; ctx.lineWidth=.75; ctx.stroke();
+        });
+      }
+      canvas.dataset.frame = String(Number(canvas.dataset.frame || 0) + 1);
+      frame = requestAnimationFrame(draw);
+    }
+    function cleanup() { cancelAnimationFrame(frame); observer.disconnect(); map.off("movestart", clear); }
+    function clear() { particles.forEach(reset); }
+    const observer = new ResizeObserver(resize); observer.observe(container);
+    map.on("movestart", clear); map.on("unload", cleanup);
+    resize(); frame = requestAnimationFrame(draw);
   }
   function addMoistureStreamfield() {
     const svgNS = "http://www.w3.org/2000/svg";
