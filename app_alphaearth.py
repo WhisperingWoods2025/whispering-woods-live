@@ -340,7 +340,7 @@ def inject_theme_css() -> None:
         """
 <style>
 :root {
-  --ww-bg: #f7f5ee;
+  --ww-bg: #f5f7f8;
   --ww-surface: rgba(255,255,255,.84);
   --ww-surface-strong: rgba(255,255,255,.96);
   --ww-ink: #122018;
@@ -354,7 +354,7 @@ def inject_theme_css() -> None:
 }
 [data-testid="stAppViewContainer"] {
   color: var(--ww-ink);
-  background: linear-gradient(180deg, #fbfaf6 0%, #f5f2e8 48%, #eef4ef 100%);
+  background: #f5f7f8;
 }
 [data-testid="stHeader"] {
   background: rgba(251,250,246,.82);
@@ -363,7 +363,7 @@ def inject_theme_css() -> None:
 }
 .block-container { max-width: 1900px; padding: 1rem 1.35rem 1.4rem; }
 [data-testid="column"] { min-width: 0; }
-.ww-topbar { display:flex; align-items:center; justify-content:space-between; min-height:56px; margin:.05rem 0 1rem; padding:.48rem .6rem .48rem .75rem; border:1px solid var(--ww-line); border-radius:8px; background:rgba(255,255,255,.76); box-shadow:0 18px 50px rgba(35,53,42,.08); backdrop-filter: blur(20px); }
+.ww-topbar { display:flex; align-items:center; justify-content:space-between; min-height:48px; margin:0 0 1rem; padding:0 0 .65rem; border-bottom:1px solid var(--ww-line); background:transparent; }
 .ww-brand { display:flex; align-items:center; gap:.68rem; color:var(--ww-ink); font-weight:790; font-size:1rem; }
 .ww-mark { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:#ffffff; background:#16251c; font-weight:850; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
 .ww-nav { display:flex; align-items:center; gap:.32rem; padding:.22rem; border:1px solid var(--ww-line); border-radius:8px; background:rgba(246,245,239,.72); }
@@ -372,7 +372,7 @@ def inject_theme_css() -> None:
 .ww-nav .active { color:#ffffff; background:#17251c; box-shadow:0 8px 24px rgba(22,37,28,.18); }
 .ww-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; margin:.1rem 0 .85rem; }
 .ww-kicker, .ww-map-label, .ww-plan-label, .ww-section-label { color:var(--ww-green); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
-.ww-title { margin:.12rem 0 0; color:var(--ww-ink); font-size:2.55rem; line-height:1.01; font-weight:840; letter-spacing:0; }
+.ww-title { margin:.12rem 0 0; color:var(--ww-ink); font-size:1.65rem; line-height:1.2; font-weight:700; letter-spacing:0; }
 .ww-hero-copy { color:var(--ww-muted); margin-top:.46rem; font-size:1rem; max-width:850px; line-height:1.45; }
 .ww-status-row { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.42rem; }
 .ww-status { color:#1d3325; border:1px solid rgba(47,125,79,.18); border-radius:8px; background:rgba(220,239,222,.66); padding:.43rem .64rem; font-size:.8rem; font-weight:770; }
@@ -575,6 +575,73 @@ def inject_theme_css() -> None:
 @keyframes ww-proof-pulse { 0% { box-shadow:0 0 0 0 rgba(47,140,144,.34); transform:scale(.92); } 100% { box-shadow:0 0 0 10px rgba(47,140,144,0); transform:scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .ww-reduced-motion-note { display:block; } }
 @media (max-width:1120px) { .block-container { padding:.8rem .65rem 1rem; } .ww-topbar,.ww-hero,.ww-map-head,.ww-brief-top,.ww-tree-register-head,.ww-today-pin,.ww-asset-head { align-items:flex-start; flex-direction:column; } .ww-nav,.ww-status-row,.ww-legend,.ww-brief-status { justify-content:flex-start; } .ww-title { font-size:1.84rem; } .ww-signal-grid,.ww-kpi-grid,.ww-insight-grid,.ww-brief-grid,.ww-impact-grid,.ww-tree-register-grid,.ww-tree-driver-grid,.ww-field-card-grid,.ww-gsplat-plan,.ww-3d-overlay-strip,.ww-3d-scene-grid,.ww-source-clarity-grid,.ww-asset-grid { grid-template-columns:1fr; } .ww-field-task { grid-template-columns:1fr; } .ww-panel { position:static; } }
+/* The map owns the desktop canvas; controls float above it. */
+:root { --ww-glass:rgba(248,252,255,.78); --ww-glass-line:rgba(255,255,255,.88); }
+.block-container { max-width:none; padding:0 0 2rem; }
+[data-testid="stAppViewContainer"] { background:#edf2f4; }
+[data-testid="stHeader"] { background:transparent; border:0; backdrop-filter:none; }
+.ww-topbar { position:fixed; top:60px; left:0; right:0; z-index:10; margin:0; padding:12px 22px; min-height:72px; border:0; background:transparent; pointer-events:none; }
+.ww-topbar > * { pointer-events:auto; }
+.ww-brand,.ww-nav { background:var(--ww-glass); backdrop-filter:blur(24px) saturate(150%); -webkit-backdrop-filter:blur(24px) saturate(150%); border:1px solid var(--ww-glass-line); box-shadow:inset 0 1px 1px #fff,0 6px 24px #182c3a14; border-radius:28px; }
+.ww-brand { padding:8px 16px 8px 9px; font-weight:650; }
+.ww-mark { border-radius:50%; box-shadow:none; background:#235743; }
+.ww-nav { padding:5px; gap:4px; }
+.ww-nav a { border-radius:22px; min-width:100px; padding:10px 16px; font-weight:600; }
+.ww-nav .active { background:#204e43; box-shadow:0 2px 8px #163c3326; }
+.ww-nav a:focus-visible { outline:3px solid #3478a9; outline-offset:2px; }
+.ww-hero { position:fixed; top:144px; right:22px; z-index:5; display:block; max-width:360px; padding:12px 16px; margin:0; background:var(--ww-glass); backdrop-filter:blur(24px); border:1px solid var(--ww-glass-line); border-radius:20px; box-shadow:inset 0 1px 1px #fff,0 6px 24px #182c3a14; }
+.ww-status-row { justify-content:flex-start; }
+.ww-title { font-size:1.1rem; font-weight:600; }
+.ww-kicker { font-size:.7rem; letter-spacing:0; }
+.ww-hero-copy:empty { display:none; }
+.ww-hero-copy { font-size:.78rem; margin-top:4px; }
+.ww-status { border:0; background:transparent; padding:4px; font-weight:500; font-size:.78rem; }
+.ww-map-head { padding:8px 24px; margin:0; }
+.ww-map-head h3 { font-size:1rem; }
+.ww-map-label { display:none; }
+.ww-legend { gap:6px; }
+.ww-legend-item { box-shadow:none; background:transparent; border:0; font-size:.72rem; }
+.st-key-floating_controls { position:fixed; top:144px; left:22px; width:auto; z-index:20; }
+.st-key-floating_controls [data-testid="stPopover"] button { border-radius:26px; padding:10px 18px; background:var(--ww-glass); color:#172e29; border:1px solid var(--ww-glass-line); backdrop-filter:blur(24px) saturate(150%); box-shadow:inset 0 1px 1px #fff,0 8px 28px #182c3a26; }
+[data-testid="stPopoverBody"] { max-height:70vh; overflow-y:auto; width:340px; background:rgba(250,253,255,.94); backdrop-filter:blur(24px); border-radius:20px; box-shadow:0 12px 48px #122c3526; }
+[data-testid="stPopoverBody"] [data-baseweb="select"] > div { background:#eef3f5; color:#172e29; border-color:#d2dee3; border-radius:12px; }
+[data-testid="stExpander"] details > summary { color:#213b32; background:transparent; }
+[data-testid="stPopoverBody"] { color:#203b36; padding:20px; border:1px solid #ffffffd9; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] [role="radiogroup"] { display:flex; flex-wrap:wrap; gap:4px; padding:4px; background:#e4ecec99; border:1px solid #ffffffcc; border-radius:18px; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label { flex:1; margin:0; padding:8px 10px; border-radius:14px; justify-content:center; font-weight:500; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label:has(input:checked) { background:#ffffffdd; box-shadow:0 2px 8px #203b3614; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label > div:first-child { display:none; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label:focus-within { outline:2px solid #337e79; outline-offset:2px; }
+[data-testid="stPopoverBody"] label p { font-weight:500!important; font-size:.85rem; }
+[data-testid="stPopoverBody"] [data-testid="stSlider"] { padding:6px 2px; }
+[data-testid="stPopoverBody"] [data-testid="stSlider"] [data-testid="stMarkdownContainer"] p { color:#203b36!important; }
+[data-testid="stPopoverBody"] [role="slider"] { background:#337e79!important; border:3px solid #fff; box-shadow:0 2px 6px #203b3626; }
+[data-testid="stPopoverBody"] [data-testid="stExpander"] { border-radius:14px; border:1px solid #dae4e4; }
+[data-testid="stPopoverBody"] [data-testid="stTextArea"] textarea { background:#f4f8f9; border-radius:12px; color:#203b36; }
+.stTabs [data-baseweb="tab"] { border:0; background:transparent; border-radius:16px; color:#526760; font-weight:500; }
+.stTabs [data-baseweb="tab"][aria-selected="true"] { background:#e5f0ef; color:#235f59; }
+.stTabs [data-baseweb="tab-highlight"] { background:#337e79; }
+.ww-time-card strong,.ww-forecast-time-card strong,.ww-status.gold { color:#235f59!important; }
+.ww-status.gold { background:#e5f0ef; border-color:#c8dfdc; }
+.ww-panel,.ww-control-band { background:transparent; border:0; box-shadow:none; padding:0; margin:0; }
+.ww-panel:empty,.ww-control-band:empty { display:none; }
+.ww-section-label { letter-spacing:0; font-weight:600; color:#526760; }
+.ww-today-pin { background:#e8f2ef; border:0; border-radius:12px; }
+[data-testid="stExpander"] { margin:0 22px; border-color:#dbe4e7; background:#ffffffb3; box-shadow:none; }
+[data-testid="stPopoverBody"] [data-testid="stExpander"] { margin:0; background:transparent; }
+iframe[title="streamlit_folium.st_folium"] { min-height:540px; }
+[data-testid="stDeckGlJsonChart"] { min-height:calc(100vh - 185px); }
+@supports not (backdrop-filter:blur(1px)) { .ww-brand,.ww-nav,.st-key-floating_controls [data-testid="stPopover"] button { background:#f8fcff; } }
+@media (max-width:760px) {
+ .ww-topbar { flex-wrap:wrap; gap:8px; padding:10px 12px; }
+ .ww-nav { flex:1; justify-content:space-between; }
+ .ww-nav a { min-width:0; padding:8px 12px; }
+ .ww-hero { position:relative; top:auto; right:auto; margin:100px 12px 8px; max-width:none; }
+ .ww-map-head { padding:6px 12px; }
+ .st-key-floating_controls { top:150px; left:12px; }
+ [data-testid="stPopoverBody"] { width:min(340px,calc(100vw - 24px)); }
+ iframe[title="streamlit_folium.st_folium"] { height:65vh !important; }
+}
 </style>
         """,
         unsafe_allow_html=True,
@@ -1411,8 +1478,9 @@ def build_map(center: list[float], bounds: list[list[float]], basemap: str) -> f
     elif basemap == "Terrain":
         folium.TileLayer("OpenTopoMap", name="Terrain", control=False).add_to(m)
     else:
-        folium.TileLayer("CartoDB positron", name="Light map", control=False).add_to(m)
+        folium.TileLayer("OpenStreetMap", name="Street map", control=False).add_to(m)
     m.fit_bounds(bounds, padding=(24, 24))
+    m.get_root().header.add_child(Element("<style>.leaflet-top.leaflet-left{top:150px}.leaflet-top.leaflet-right{top:210px}</style>"))
     return m
 
 
@@ -2147,6 +2215,7 @@ def apply_view_preset(view_mode: str, app_mode: str) -> None:
 
 def apply_prediction_layer_scope(app_mode: str) -> None:
     if app_mode != "Predictions":
+        st.session_state["layer_prediction"] = False
         return
     for layer_id in PREDICTION_DISABLED_LAYERS:
         st.session_state[f"layer_{layer_id}"] = False
@@ -2293,13 +2362,8 @@ def render_topbar(app_mode: str) -> None:
 
 def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode: str, app_mode: str, period_label: str, projection_year: int) -> None:
     titles = {mode: meta["title"] for mode, meta in WORKSPACE_MODE_META.items()}
-    lens_copy = VIEW_PRESETS[view_mode]["copy"]
-    if app_mode == "Predictions":
-        lens_copy = FORECAST_CAVEAT
     if app_mode == "Predictions":
         timeline_status = f"Forecast to {projection_year}"
-    elif app_mode == "3D View":
-        timeline_status = f"Observed {period_label} + scenario {projection_year}"
     else:
         timeline_status = f"Observed {period_label}"
     mode_status = WORKSPACE_MODE_META[app_mode]["status"]
@@ -2308,13 +2372,11 @@ def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode
   <div>
     <div class="ww-kicker">{area_name}</div>
     <div class="ww-title">{titles[app_mode]}</div>
-    <div class="ww-hero-copy">{lens_copy}</div>
+    <div class="ww-hero-copy">{FORECAST_CAVEAT if app_mode == 'Predictions' else ''}</div>
   </div>
   <div class="ww-status-row">
     <div class="ww-status">{mode_status}</div>
-    <div class="ww-status gold">{usage_mode}</div>
     <div class="ww-status">{timeline_status}</div>
-    <div class="ww-status">{enabled_count} layers</div>
   </div>
 </div>
     """, unsafe_allow_html=True)
@@ -2323,7 +2385,6 @@ def render_header(usage_mode: str, enabled_count: int, area_name: str, view_mode
 def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-panel'>", unsafe_allow_html=True)
     st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
-    st.markdown("<div class='ww-panel-copy'>Shape the forest canvas by time, lens, and evidence layer.</div>", unsafe_allow_html=True)
 
     sync_workspace_mode_from_query()
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
@@ -2332,14 +2393,12 @@ def render_layer_panel() -> tuple:
     if app_mode != "Predictions" and st.session_state.get("_last_workspace_mode") != app_mode:
         st.session_state["observed_time_mode"] = "Today"
     st.session_state["_last_workspace_mode"] = app_mode
-    render_mode_context(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
     view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0, label_visibility="collapsed")
     apply_view_preset(view_mode, app_mode)
     apply_prediction_layer_scope(app_mode)
-    st.caption(VIEW_PRESETS[view_mode]["copy"])
     st.markdown("</div>", unsafe_allow_html=True)
 
     today = current_observed_date()
@@ -2386,36 +2445,29 @@ def render_layer_panel() -> tuple:
                 min_step, max_step = get_period_step_bounds(year, granularity)
                 scrub_label = "Day" if granularity == "Daily" else "Week"
                 step_index = int(st.slider(scrub_label, min_value=min_step, max_value=max_step, value=int(st.session_state[step_key]), step=1, key=step_key))
-        st.markdown("<div class='ww-control-note'>Observed time is bounded to today. Future exploration lives in Forecast or the 3D scenario overlay.</div>", unsafe_allow_html=True)
-        render_timeline_status(year, granularity, step_index)
-        forecast_overlay_active = app_mode == "3D View" or bool(st.session_state.get("layer_prediction", False))
-        if forecast_overlay_active:
-            default_projection = min(max(int(st.session_state.get("projection_year", today.year + DEFAULT_FORECAST_HORIZON_YEARS)), today.year), today.year + FORECAST_HORIZON_YEARS)
-            projection_year = int(st.slider("Forecast overlay year", min_value=today.year, max_value=today.year + FORECAST_HORIZON_YEARS, value=default_projection, step=1, key="projection_year", help="Used only for 3D and predicted stress overlays."))
-            st.markdown(f"<div class='ww-control-note'>{FORECAST_CAVEAT}</div>", unsafe_allow_html=True)
-        else:
-            projection_year = today.year + DEFAULT_FORECAST_HORIZON_YEARS
-            st.markdown("<div class='ww-control-note'>Forecast controls appear when 3D View or Predicted stress surface is active.</div>", unsafe_allow_html=True)
-    forecast_controls_active = app_mode == "Predictions" or app_mode == "3D View" or bool(st.session_state.get("layer_prediction", False))
-    risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1, disabled=not forecast_controls_active, help="Scenario only affects the prototype forecast surface.")
-    basemap = st.selectbox("Map style", ["Light", "Satellite", "Terrain"], index=0)
+        projection_year = year
+    forecast_controls_active = app_mode == "Predictions"
+    risk_scenario = "Moderate"
+    if forecast_controls_active:
+        risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1, help="Scenario only affects the prototype forecast surface.")
+    basemap = "Light"
+    if app_mode != "3D View":
+        basemap = st.selectbox("Map style", ["Streets", "Satellite", "Terrain"], index=0)
     height_mode = "Risk score"
     if app_mode == "3D View":
-        height_mode = st.radio("3D height", ["Risk score", "Terrain"], index=0, horizontal=True)
+        height_mode = st.radio("3D height", ["Terrain", "Risk score"], index=0, horizontal=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     for section_label, section_layers in LAYER_SECTIONS:
+        section_layers = [(layer_id, label, help_text) for layer_id, label, help_text in section_layers if app_mode == "Predictions" or layer_id != "prediction"]
         section_disabled = app_mode == "Predictions" and section_label == "Weather canvas"
-        section_class = "ww-control-band disabled" if section_disabled else "ww-control-band"
-        st.markdown(f"<div class='{section_class}'><div class='ww-section-label'>{section_label}</div>", unsafe_allow_html=True)
-        if section_disabled:
-            st.markdown("<div class='ww-control-note'>Weather motion is paused in Forecast. The model uses DWD climate trend internally instead of live rain, wind, or cloud animation switches.</div>", unsafe_allow_html=True)
-        elif app_mode == "Predictions" and section_label == "Forest evidence":
-            st.markdown("<div class='ww-control-note'>The predicted stress surface is locked on; other evidence layers remain optional context.</div>", unsafe_allow_html=True)
-        for layer_id, label, help_text in section_layers:
-            disabled = is_prediction_scoped_layer(app_mode, layer_id)
-            st.checkbox(label, key=f"layer_{layer_id}", help=help_text, disabled=disabled)
-        st.markdown("</div>", unsafe_allow_html=True)
+        active_count = sum(bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in section_layers)
+        with st.expander(f"{section_label} � {active_count} active", expanded=False):
+            if section_disabled:
+                st.caption("Weather layers are unavailable in forecast scenarios.")
+            for layer_id, label, help_text in section_layers:
+                disabled = is_prediction_scoped_layer(app_mode, layer_id)
+                st.toggle(label, key=f"layer_{layer_id}", help=help_text, disabled=disabled)
 
     layers = {layer_id: bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in LAYER_META}
     with st.expander("Custom AOI", expanded=False):
@@ -2455,7 +2507,7 @@ def render_source_clarity_drawer(app_mode: str, period: dict, projection_year: i
   <div class="ww-source-clarity-grid">{cards}</div>
 </div>
     """, unsafe_allow_html=True)
-    with st.expander("Layer source details", expanded=False):
+    with st.container():
         if not active_layers:
             st.caption("No optional layers are active.")
             return
@@ -2890,7 +2942,7 @@ def render_tree_twin_register(area_name: str, app_mode: str, period: dict, signa
 </div>
     """, unsafe_allow_html=True)
 
-    memory_tab, evidence_tab, field_tab, capture_tab = st.tabs(["Memory", "Why this score", "Field card", "3D capture"])
+    memory_tab, evidence_tab, capture_tab, field_tab = st.tabs(["Health and changes", "Why this score", "Photos and 3D", "Field notes"])
     with memory_tab:
         st.markdown(f"""
 <div class="ww-memory-list">
@@ -3226,24 +3278,24 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
     folium.LayerControl(position="topright", collapsed=True).add_to(m)
-    render_weather_motion_proof(layers, signal)
-    render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Environmental layer canvas")
     map_state = st_folium(m, width=None, height=780)
+    render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Active layers")
     selected_tree_id = render_map_selection(map_state)
-    render_project_impact_brief(area_name, app_mode="Map", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
-    render_tree_twin_register(area_name, app_mode="Map", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
+    with st.expander("Forest condition and priorities", expanded=False):
+        render_project_impact_brief(area_name, app_mode="Map", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+    with st.expander("Tree twins", expanded=bool(selected_tree_id)):
+        render_tree_twin_register(area_name, app_mode="Map", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
     captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
     captions.extend(notes)
-    st.caption(" ".join(captions))
-    render_evidence_board(year, period, view_mode, layers, signal, readings, unavailable, notes, prediction_df, climate_signal, scenario_name, projection_year)
+    with st.expander("Observations and evidence", expanded=False):
+        st.caption(" ".join(captions))
+        render_evidence_board(year, period, view_mode, layers, signal, readings, unavailable, notes, prediction_df, climate_signal, scenario_name, projection_year)
 
 
 def render_predictions_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
-    render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
-    render_project_impact_brief(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
     forecast_label = f"Today -> {projection_year}"
     map_layers = dict(layers)
     map_layers["prediction"] = False
@@ -3258,26 +3310,31 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the prediction map.", exc)
     folium.LayerControl(position="topright", collapsed=True).add_to(m)
-    render_map_heading(forecast_label, [("Predicted stress", "#ce6858"), ("Moisture", "#3ca7a6"), ("Wind", "#8eb8c7"), ("Tree twins", "#2f7d4f")], area_name, title="Forecast surface")
     map_state = st_folium(m, width=None, height=660)
+    render_map_heading(forecast_label, get_enabled_labels(layers), area_name, title="Forecast surface")
     selected_tree_id = render_map_selection(map_state)
     st.caption(" ".join(notes) if notes else "Prediction is calculated in-app from public read-only layers and local DWD observations.")
-    render_tree_twin_register(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
-    render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
+    with st.expander("Forecast findings", expanded=False):
+        render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
+        render_project_impact_brief(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
+        render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
+    with st.expander("Tree twins", expanded=bool(selected_tree_id)):
+        render_tree_twin_register(area_name, app_mode="Predictions", period=period, signal=signal, readings=readings, prediction_df=prediction_df, selected_tree_id=selected_tree_id)
 
 
 def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name: str, height_mode: str, bounds: list[list[float]], center: list[float], signal: dict, readings: list[dict], layers: dict[str, bool]) -> None:
+    projection_year = year
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     sensor_df = build_sensor_frame(year, period, readings, signal, prediction_df)
-    render_prediction_summary(prediction_df, climate_signal, projection_year, scenario_name)
-    render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year, prediction_df=prediction_df, climate_signal=climate_signal)
-    render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
-    render_3d_scene_guide(prediction_df, sensor_df, layers, signal, projection_year)
-    render_map_heading(f"{period['label']} -> {projection_year}", [("Stress veil", "#ce6858"), ("Moisture corridors", "#2f9a98"), ("Canopy", "#449666"), ("Stations", "#3478a9"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
+    render_map_heading(period['label'], [("Forest stress signal", "#ce6858"), ("Moisture corridors", "#2f9a98"), ("Canopy", "#449666"), ("Stations", "#3478a9"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
     render_3d_view(prediction_df, sensor_df, center, height_mode, bounds, signal, layers)
     if prediction_note:
         st.caption(prediction_note)
-    render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
+    with st.expander("Forest condition", expanded=False):
+        st.caption("Forest stress is a prototype estimate for the selected observation year. Future scenarios are available in Forecast.")
+        render_project_impact_brief("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, layers=layers, projection_year=projection_year)
+    with st.expander("Tree twins", expanded=False):
+        render_tree_twin_register("Berchtesgaden National Park", app_mode="3D View", period=period, signal=signal, readings=readings, prediction_df=prediction_df)
 
 
 def main() -> None:
@@ -3286,11 +3343,9 @@ def main() -> None:
     usage_mode = enforce_no_cost_guardrail()
     _init_ee_cached()
 
-    control_col, main_col = st.columns([0.95, 3.35], gap="large")
-    with control_col:
-        app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
-        render_sources_panel()
-        render_planned_layers()
+    with st.container(key="floating_controls"):
+        with st.popover("Explore", icon=":material/tune:"):
+            app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
 
     period = build_period_context(year, granularity, step_index)
     try:
@@ -3309,18 +3364,18 @@ def main() -> None:
         show_earth_engine_error("Earth Engine could not locate the selected area.", exc)
 
     enabled_count = sum(1 for enabled in layers.values() if enabled)
-    with main_col:
+    with st.container():
         render_topbar(app_mode)
         render_header(usage_mode, enabled_count, area_name, view_mode, app_mode, period["label"], projection_year)
-        render_environment_strip(signal)
-        render_observation_summary(period, view_mode, layers, signal, readings, unavailable, app_mode, projection_year)
-        render_source_clarity_drawer(app_mode, period, projection_year, layers, weather_source, usage_mode)
         if app_mode == "Map":
             render_map_mode(year, period, projection_year, scenario_name, basemap, layers, view_mode, signal, readings, unavailable, aoi, area_name, center, bounds)
         elif app_mode == "Predictions":
             render_predictions_mode(year, period, projection_year, scenario_name, basemap, layers, signal, readings, unavailable, aoi, area_name, center, bounds)
         else:
             render_3d_mode(year, period, projection_year, scenario_name, height_mode, bounds, center, signal, readings, layers)
+        with st.expander("Data sources and availability", expanded=False):
+            render_observation_summary(period, view_mode, layers, signal, readings, unavailable, app_mode, projection_year)
+            render_source_clarity_drawer(app_mode, period, projection_year, layers, weather_source, usage_mode)
 
 
 if __name__ == "__main__":
