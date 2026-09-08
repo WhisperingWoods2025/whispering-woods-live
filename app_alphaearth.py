@@ -2462,7 +2462,7 @@ def render_layer_panel() -> tuple:
         section_layers = [(layer_id, label, help_text) for layer_id, label, help_text in section_layers if app_mode == "Predictions" or layer_id != "prediction"]
         section_disabled = app_mode == "Predictions" and section_label == "Weather canvas"
         active_count = sum(bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in section_layers)
-        with st.expander(f"{section_label} � {active_count} active", expanded=False):
+        with st.expander(f"{section_label} ({active_count} active)", expanded=False):
             if section_disabled:
                 st.caption("Weather layers are unavailable in forecast scenarios.")
             for layer_id, label, help_text in section_layers:
