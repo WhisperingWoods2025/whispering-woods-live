@@ -651,6 +651,26 @@ iframe[title="streamlit_folium.st_folium"] { min-height:540px; }
  [data-testid="stPopoverBody"] { width:min(340px,calc(100vw - 24px)); }
  iframe[title="streamlit_folium.st_folium"] { height:65vh !important; }
 }
+
+/* HIG: one navigation material, quiet content groups, accessible contrast. */
+.ww-topbar { flex-direction:row; align-items:center; }
+.ww-hero { max-width:300px; border-radius:18px; background:rgba(250,253,255,.9); }
+.ww-title { font-size:1rem; line-height:1.35; }
+.ww-kicker,.ww-section-label { letter-spacing:0; text-transform:none; }
+.st-key-map_appearance { position:fixed; left:22px; top:200px; width:auto; z-index:20; }
+.st-key-map_appearance [data-testid="stPopover"] button { min-height:44px; border-radius:24px; padding:10px 16px; background:var(--ww-glass); backdrop-filter:blur(24px) saturate(140%); border:1px solid white; color:#203b36; box-shadow:0 4px 16px #203b361a; }
+[data-testid="stPopoverBody"] { border-radius:20px; background:rgba(247,251,252,.96); padding:16px; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"],[data-testid="stPopoverBody"] [data-testid="stToggle"] { border:0; border-radius:0; border-bottom:1px solid #d9e3e3; background:transparent; box-shadow:none; min-height:44px; margin:0; padding:10px 4px; width:100%; }
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"]:has(input:checked),[data-testid="stPopoverBody"] [data-testid="stToggle"]:has(input:checked) { background:transparent; border-color:#d9e3e3; }
+[data-testid="stPopoverBody"] [data-testid="stExpander"] { border:0; background:transparent; box-shadow:none; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label { min-height:36px; }
+[data-testid="stPopoverBody"] [data-testid="stRadio"] label:has(input:checked) { box-shadow:none; color:#174c46; }
+[data-testid="stPopoverBody"] :focus-visible { outline:2px solid #286e68; outline-offset:3px; }
+@media (prefers-reduced-transparency:reduce),(prefers-contrast:more) {
+ .ww-brand,.ww-nav,.ww-hero,[data-testid="stPopoverBody"],.st-key-floating_controls button,.st-key-map_appearance button { background:#f8fcfc!important; backdrop-filter:none!important; border:1px solid #69877f!important; }
+}
+@media (prefers-reduced-motion:reduce) { .ww-brand,.ww-nav,.ww-hero { transition:none; } }
+@media (max-width:760px) { .ww-topbar { flex-wrap:wrap; } .st-key-map_appearance { top:150px; left:150px; } .ww-hero { max-width:none; } }
 </style>
         """,
         unsafe_allow_html=True,
@@ -1488,6 +1508,8 @@ def build_map(center: list[float], bounds: list[list[float]], basemap: str) -> f
         folium.TileLayer("OpenTopoMap", name="Terrain", control=False).add_to(m)
     else:
         folium.TileLayer("OpenStreetMap", name="Street map", control=False).add_to(m)
+    if basemap == "Monochrome":
+        m.get_root().header.add_child(Element("<style>.leaflet-tile-pane{filter:grayscale(1) contrast(.82) brightness(1.08)}</style>"))
     m.fit_bounds(bounds, padding=(24, 24))
     m.get_root().header.add_child(Element("<style>.leaflet-top.leaflet-left{top:150px}.leaflet-top.leaflet-right{top:210px}</style>"))
     return m
@@ -1724,7 +1746,7 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let width = 0, height = 0, particles = [], frame = 0, previous = 0;
     const angle = payload.stage.angle * Math.PI / 180;
-    const speed = 9 + payload.stage.wind_strength * 48;
+    const speed = 18 + payload.stage.wind_strength * 52;
     function reset(p) {
       p.x = Math.random() * width; p.y = Math.random() * height;
       p.age = 0; p.life = 1.2 + Math.random() * 2.8; p.trail = [];
@@ -1756,8 +1778,8 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
           if (p.trail.length < 2) return;
           ctx.beginPath(); p.trail.forEach((point,i) => i ? ctx.lineTo(...point) : ctx.moveTo(...point));
           ctx.lineCap = "round";
-          ctx.strokeStyle = "rgba(24,83,108," + (.38*fade) + ")"; ctx.lineWidth=1.8; ctx.stroke();
-          ctx.strokeStyle = "rgba(223,249,255," + (.9*fade) + ")"; ctx.lineWidth=.75; ctx.stroke();
+          ctx.strokeStyle = "rgba(24,83,108," + (.65*fade) + ")"; ctx.lineWidth=2.2; ctx.stroke();
+          ctx.strokeStyle = "rgba(223,249,255," + (.95*fade) + ")"; ctx.lineWidth=1.0; ctx.stroke();
         });
       }
       canvas.dataset.frame = String(Number(canvas.dataset.frame || 0) + 1);
@@ -2405,8 +2427,8 @@ def render_layer_panel() -> tuple:
     st.markdown("<div class='ww-panel-title'>Explore</div>", unsafe_allow_html=True)
 
     sync_workspace_mode_from_query()
-    st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Workspace</div>", unsafe_allow_html=True)
-    app_mode = st.radio("Workspace", WORKSPACE_MODES, horizontal=True, label_visibility="collapsed", key="workspace_mode", format_func=lambda mode: WORKSPACE_MODE_META[mode]["nav"])
+    st.markdown("<div class='ww-control-band'>", unsafe_allow_html=True)
+    app_mode = st.session_state.get("workspace_mode", "Map")
     sync_workspace_query(app_mode)
     if app_mode != "Predictions" and st.session_state.get("_last_workspace_mode") != app_mode:
         st.session_state["observed_time_mode"] = "Today"
@@ -2468,9 +2490,9 @@ def render_layer_panel() -> tuple:
     risk_scenario = "Moderate"
     if forecast_controls_active:
         risk_scenario = st.selectbox("Climate scenario", list(SCENARIO_SETTINGS.keys()), index=1, help="Scenario only affects the prototype forecast surface.")
-    basemap = "Light"
+    basemap = "Monochrome"
     if app_mode != "3D View":
-        basemap = st.selectbox("Map style", ["Streets", "Satellite", "Terrain"], index=0)
+        basemap = st.session_state.get("map_style", "Monochrome")
     height_mode = "Risk score"
     if app_mode == "3D View":
         height_mode = st.radio("3D height", ["Terrain", "Risk score"], index=0, horizontal=True)
@@ -3295,7 +3317,6 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
         add_aoi_boundary(m, aoi, area_name)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the selected forest layers.", exc)
-    folium.LayerControl(position="topright", collapsed=True).add_to(m)
     map_state = st_folium(m, width=None, height=780)
     render_map_heading(period["label"], get_enabled_labels(layers), area_name, title="Active layers")
     selected_tree_id = render_map_selection(map_state)
@@ -3327,7 +3348,6 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
             notes.append(prediction_note)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not render the prediction map.", exc)
-    folium.LayerControl(position="topright", collapsed=True).add_to(m)
     map_state = st_folium(m, width=None, height=660)
     render_map_heading(forecast_label, get_enabled_labels(layers), area_name, title="Forecast surface")
     selected_tree_id = render_map_selection(map_state)
@@ -3364,6 +3384,11 @@ def main() -> None:
     with st.container(key="floating_controls"):
         with st.popover("Explore", icon=":material/tune:"):
             app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
+
+    if app_mode != "3D View":
+        with st.container(key="map_appearance"):
+            with st.popover("Map style", icon=":material/map:"):
+                basemap = st.radio("Map appearance", ["Monochrome", "Streets", "Satellite", "Terrain"], key="map_style")
 
     period = build_period_context(year, granularity, step_index)
     try:
