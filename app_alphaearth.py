@@ -3231,26 +3231,26 @@ def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: 
     tree_crown_df = build_3d_tree_crown_frame(sensor_df, bounds)
     deck_layers = []
     if not overlay_frames["canopy"].empty:
-        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["canopy"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.72, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=overlay_frames["canopy"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.72, pickable=True, auto_highlight=True))
     if not overlay_frames["water"].empty:
-        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["water"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=0.4, opacity=0.82, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=overlay_frames["water"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=0.4, opacity=0.82, pickable=True, auto_highlight=True))
     if not overlay_frames["stress"].empty:
-        deck_layers.append(pdk.Layer("PolygonLayer", data=overlay_frames["stress"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.78, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=overlay_frames["stress"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.78, pickable=True, auto_highlight=True))
     if not overlay_frames["moisture_paths"].empty:
-        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["moisture_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PathLayer", position_format="XY", width_max_pixels=3, data=overlay_frames["moisture_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
     if not overlay_frames["rain_paths"].empty:
-        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["rain_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PathLayer", position_format="XY", width_max_pixels=3, data=overlay_frames["rain_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
     if not overlay_frames["wind_paths"].empty:
-        deck_layers.append(pdk.Layer("PathLayer", data=overlay_frames["wind_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PathLayer", position_format="XY", width_max_pixels=3, data=overlay_frames["wind_paths"], get_path="path", get_color="color", get_width="width", width_units="meters", width_min_pixels=1, rounded=True, pickable=True, auto_highlight=True))
     if not tree_crown_df.empty:
-        deck_layers.append(pdk.Layer("PolygonLayer", data=tree_crown_df, get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=1.1, opacity=0.86, pickable=True, auto_highlight=True))
+        deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=tree_crown_df, get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=1.1, opacity=0.86, pickable=True, auto_highlight=True))
     deck_layers.append(pdk.Layer("ColumnLayer", data=terrain_df, get_position="[lon, lat]", get_elevation="height", get_fill_color="color", radius=120, coverage=0.72, pickable=True, auto_highlight=True))
     if not sensor_df.empty:
         point_df = sensor_df.copy()
         deck_layers.append(pdk.Layer("ScatterplotLayer", data=point_df, get_position="[lon, lat]", get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True))
         if not tree_crown_df.empty:
             deck_layers.append(pdk.Layer("TextLayer", data=tree_crown_df, get_position="[lon, lat]", get_text="label", get_color=[18, 32, 24, 230], get_size=13, get_alignment_baseline="'bottom'", get_pixel_offset=[0, -18]))
-    view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.7, pitch=58, bearing=-28)
+    view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.3, pitch=42, bearing=-28)
     return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
 
 
@@ -3298,7 +3298,6 @@ def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center:
     if prediction_df.empty:
         st.info("No 3D terrain samples are available for this area.")
         return
-    render_3d_overlay_summary(layers, signal, height_mode)
     st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers), use_container_width=True)
 
 
