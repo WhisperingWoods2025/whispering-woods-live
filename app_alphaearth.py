@@ -639,7 +639,7 @@ def inject_theme_css() -> None:
 [data-testid="stExpander"] { margin:0 22px; border-color:#dbe4e7; background:#ffffffb3; box-shadow:none; }
 [data-testid="stPopoverBody"] [data-testid="stExpander"] { margin:0; background:transparent; }
 iframe[title="streamlit_folium.st_folium"] { min-height:540px; }
-[data-testid="stDeckGlJsonChart"] { min-height:calc(100vh - 185px); }
+[data-testid="stDeckGlJsonChart"] { overflow:hidden; }
 @supports not (backdrop-filter:blur(1px)) { .ww-brand,.ww-nav,.st-key-floating_controls [data-testid="stPopover"] button { background:#f8fcff; } }
 @media (max-width:760px) {
  .ww-topbar { flex-wrap:wrap; gap:8px; padding:10px 12px; }
@@ -3334,7 +3334,7 @@ def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center:
     if prediction_df.empty:
         st.info("No 3D terrain samples are available for this area.")
         return
-    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers, forest_style), use_container_width=True)
+    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers, forest_style), use_container_width=True, height=700)
 
 
 def render_map_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], view_mode: str, signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
