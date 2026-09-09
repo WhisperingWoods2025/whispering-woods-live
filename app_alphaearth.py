@@ -2245,26 +2245,35 @@ def build_3d_overlay_frames(prediction_df: pd.DataFrame, bounds: list[list[float
 
 def apply_view_preset(view_mode: str, app_mode: str) -> None:
     preset_key = f"{app_mode}:{view_mode}"
-    if st.session_state.get("active_view_preset") == preset_key:
+    if st.session_state.get("active_view_preset") == preset_key and "overlay_selection" in st.session_state:
         return
     st.session_state["active_view_preset"] = preset_key
     preset_layers = VIEW_PRESETS[view_mode]["layers"]
-    for layer_id, _, _ in LAYER_META:
-        st.session_state[f"layer_{layer_id}"] = preset_layers.get(layer_id, False)
+    selection = {layer_id: bool(preset_layers.get(layer_id, False)) for layer_id, _, _ in LAYER_META}
+    if app_mode == "Predictions":
+        selection["prediction"] = True
+    st.session_state["overlay_selection"] = selection
+    st.session_state["overlay_revision"] = st.session_state.get("overlay_revision", 0) + 1
 
 
 def apply_prediction_layer_scope(app_mode: str) -> None:
-    if app_mode != "Predictions":
-        st.session_state["layer_prediction"] = False
-        return
-    for layer_id in PREDICTION_DISABLED_LAYERS:
-        st.session_state[f"layer_{layer_id}"] = False
-    for layer_id in PREDICTION_FORCED_LAYERS:
-        st.session_state[f"layer_{layer_id}"] = True
+    selection = dict(st.session_state["overlay_selection"])
+    if app_mode == "Predictions":
+        for layer_id in PREDICTION_DISABLED_LAYERS:
+            selection[layer_id] = False
+    else:
+        selection["prediction"] = False
+    st.session_state["overlay_selection"] = selection
+
+
+def save_overlay_selection(layer_id: str, widget_key: str) -> None:
+    selection = dict(st.session_state["overlay_selection"])
+    selection[layer_id] = bool(st.session_state[widget_key])
+    st.session_state["overlay_selection"] = selection
 
 
 def is_prediction_scoped_layer(app_mode: str, layer_id: str) -> bool:
-    return app_mode == "Predictions" and layer_id in (PREDICTION_DISABLED_LAYERS | PREDICTION_FORCED_LAYERS)
+    return app_mode == "Predictions" and layer_id in PREDICTION_DISABLED_LAYERS
 
 
 def get_query_value(name: str) -> Optional[str]:
@@ -2436,7 +2445,7 @@ def render_layer_panel() -> tuple:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
-    view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0, label_visibility="collapsed")
+    view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0, label_visibility="collapsed", key="exploration_lens")
     apply_view_preset(view_mode, app_mode)
     apply_prediction_layer_scope(app_mode)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -2502,15 +2511,19 @@ def render_layer_panel() -> tuple:
     for section_label, section_layers in LAYER_SECTIONS:
         section_layers = [(layer_id, label, help_text) for layer_id, label, help_text in section_layers if app_mode == "Predictions" or layer_id != "prediction"]
         section_disabled = app_mode == "Predictions" and section_label == "Weather canvas"
-        active_count = sum(bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in section_layers)
-        with st.expander(f"{section_label} ({active_count} active)", expanded=False):
+        active_count = sum(bool(st.session_state["overlay_selection"].get(layer_id, False)) for layer_id, _, _ in section_layers)
+        with st.expander(section_label, expanded=False):
+            st.caption(f"{active_count} selected")
             if section_disabled:
                 st.caption("Weather layers are unavailable in forecast scenarios.")
             for layer_id, label, help_text in section_layers:
                 disabled = is_prediction_scoped_layer(app_mode, layer_id)
-                st.toggle(label, key=f"layer_{layer_id}", help=help_text, disabled=disabled)
+                widget_key = f"overlay_ui_{st.session_state['overlay_revision']}_{layer_id}"
+                st.toggle(label, value=bool(st.session_state["overlay_selection"].get(layer_id, False)),
+                          key=widget_key, help=help_text, disabled=disabled,
+                          on_change=save_overlay_selection, args=(layer_id, widget_key))
 
-    layers = {layer_id: bool(st.session_state.get(f"layer_{layer_id}", False)) for layer_id, _, _ in LAYER_META}
+    layers = dict(st.session_state["overlay_selection"])
     with st.expander("Custom AOI", expanded=False):
         geojson_input: str = st.text_area("GeoJSON polygon", "", height=120, help="Leave blank to use Berchtesgaden National Park.")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -3376,7 +3389,8 @@ def render_predictions_mode(year: int, period: dict, projection_year: int, scena
     try:
         m = build_map(center, bounds, basemap)
         _, notes = add_selected_layers(m, year, period, signal, aoi, bounds, map_layers, readings, unavailable)
-        add_prediction_surface_overlay(m, prediction_df)
+        if layers.get("prediction"):
+            add_prediction_surface_overlay(m, prediction_df)
         add_tree_twin_markers(m, signal, readings, prediction_df)
         add_aoi_boundary(m, aoi, area_name)
         if prediction_note:
