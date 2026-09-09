@@ -2496,6 +2496,7 @@ def render_layer_panel() -> tuple:
     height_mode = "Risk score"
     if app_mode == "3D View":
         height_mode = st.radio("3D height", ["Terrain", "Risk score"], index=0, horizontal=True)
+        st.radio("Forest surface", ["Forest cover (2000 baseline)", "AlphaEarth patterns", "Map only"], key="forest_surface")
     st.markdown("</div>", unsafe_allow_html=True)
 
     for section_label, section_layers in LAYER_SECTIONS:
@@ -3222,7 +3223,40 @@ def render_evidence_board(year: int, period: dict, view_mode: str, layers: dict[
         render_prediction_evidence(prediction_df, climate_signal, scenario_name, projection_year)
 
 
-def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> pdk.Deck:
+
+@st.cache_data(ttl=1800, max_entries=12, show_spinner=False)
+def get_3d_forest_basemap(bounds_key: str, year: int, surface: str) -> tuple[dict, str]:
+    bounds = json.loads(bounds_key)
+    stats = get_bounds_stats(bounds)
+    west, south = stats["min_lon"], stats["min_lat"]
+    east, north = west + stats["lon_span"], south + stats["lat_span"]
+    if not (0 < east - west <= 0.8 and 0 < north - south <= 0.8):
+        raise ValueError("Forest tiles are limited to a local area under 0.8 degrees per side.")
+    region = ee.Geometry.Rectangle([west, south, east, north], geodesic=False)
+    if surface == "AlphaEarth patterns":
+        # Use a completed annual layer, never imply today's date is its acquisition date.
+        last_year = min(int(year), current_observed_date().year - 1)
+        collection = (ee.ImageCollection(EMBEDDING_COLLECTION_ID)
+                      .filterBounds(region).filterDate("2017-01-01", f"{last_year + 1}-01-01"))
+        if last_year < 2017 or int(collection.size().getInfo()) == 0:
+            raise ValueError("No AlphaEarth annual layer is available on or before this year.")
+        latest = ee.Image(collection.sort("system:time_start", False).first())
+        source_year = int(ee.Date(latest.get("system:time_start")).format("YYYY").getInfo())
+        image = collection.filterDate(f"{source_year}-01-01", f"{source_year + 1}-01-01").mosaic().clip(region)
+        visual = image.visualize(bands=["A01", "A16", "A09"], min=-1, max=1)
+        note = f"AlphaEarth annual patterns: {source_year}. False colour, not forest species or tree geometry."
+        attribution = "The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind."
+    else:
+        canopy = get_hansen_image().select("treecover2000").clip(region)
+        visual = canopy.visualize(min=0, max=100, palette=["e4e9df", "b4c6a6", "639462", "245c3c", "103d2b"])
+        note = "Hansen tree cover: year-2000 canopy percentage baseline, not current forest extent. No regrowth or individual-tree heights are inferred."
+        attribution = "Hansen / UMD / Google / USGS / NASA"
+    # A single bounded preview image, not a batch export or cloud asset.
+    preview_url = visual.getThumbURL({"region": region, "dimensions": 1024, "format": "png", "crs": "EPSG:4326"})
+    return {"image": preview_url, "bounds": [west, south, east, north]}, note + " Attribution: " + attribution
+
+
+def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool], forest_style: Optional[dict] = None) -> pdk.Deck:
     terrain_df = prediction_df.copy()
     terrain_df["height"] = terrain_df["height_terrain"] if height_mode == "Terrain" else terrain_df["height_risk"]
     terrain_df["name"] = terrain_df["risk_label"]
@@ -3230,7 +3264,9 @@ def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: 
     overlay_frames = build_3d_overlay_frames(prediction_df, bounds, signal, layers)
     tree_crown_df = build_3d_tree_crown_frame(sensor_df, bounds)
     deck_layers = []
-    if not overlay_frames["canopy"].empty:
+    if forest_style is not None:
+        deck_layers.append(pdk.Layer("BitmapLayer", image=forest_style["image"], bounds=forest_style["bounds"], opacity=0.92, pickable=False))
+    if forest_style is None and not overlay_frames["canopy"].empty:
         deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=overlay_frames["canopy"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=False, filled=True, opacity=0.72, pickable=True, auto_highlight=True))
     if not overlay_frames["water"].empty:
         deck_layers.append(pdk.Layer("PolygonLayer", position_format="XY", data=overlay_frames["water"], get_polygon="polygon", get_fill_color="fill_color", get_line_color="line_color", stroked=True, filled=True, line_width_min_pixels=0.4, opacity=0.82, pickable=True, auto_highlight=True))
@@ -3251,7 +3287,7 @@ def build_3d_deck(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: 
         if not tree_crown_df.empty:
             deck_layers.append(pdk.Layer("TextLayer", data=tree_crown_df, get_position="[lon, lat]", get_text="label", get_color=[18, 32, 24, 230], get_size=13, get_alignment_baseline="'bottom'", get_pixel_offset=[0, -18]))
     view_state = pdk.ViewState(latitude=center[0], longitude=center[1], zoom=10.3, pitch=42, bearing=-28)
-    return pdk.Deck(map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
+    return pdk.Deck(map_style= "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json", initial_view_state=view_state, layers=deck_layers, tooltip={"html": "<b>{name}</b><br>{tooltip}", "style": {"backgroundColor": "#122018", "color": "#ffffff"}})
 
 
 def render_3d_overlay_summary(layers: dict[str, bool], signal: dict, height_mode: str) -> None:
@@ -3294,11 +3330,11 @@ def render_3d_scene_guide(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, 
     """, unsafe_allow_html=True)
 
 
-def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool]) -> None:
+def render_3d_view(prediction_df: pd.DataFrame, sensor_df: pd.DataFrame, center: list[float], height_mode: str, bounds: list[list[float]], signal: dict, layers: dict[str, bool], forest_style: Optional[dict] = None) -> None:
     if prediction_df.empty:
         st.info("No 3D terrain samples are available for this area.")
         return
-    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers), use_container_width=True)
+    st.pydeck_chart(build_3d_deck(prediction_df, sensor_df, center, height_mode, bounds, signal, layers, forest_style), use_container_width=True)
 
 
 def render_map_mode(year: int, period: dict, projection_year: int, scenario_name: str, basemap: str, layers: dict[str, bool], view_mode: str, signal: dict, readings: list[dict], unavailable: int, aoi: ee.Geometry, area_name: str, center: list[float], bounds: list[list[float]]) -> None:
@@ -3364,7 +3400,19 @@ def render_3d_mode(year: int, period: dict, projection_year: int, scenario_name:
     prediction_df, climate_signal, prediction_note = build_prediction_surface(bounds, year, projection_year, scenario_name)
     sensor_df = build_sensor_frame(year, period, readings, signal, prediction_df)
     render_map_heading(period['label'], [("Forest stress signal", "#ce6858"), ("Moisture corridors", "#2f9a98"), ("Canopy", "#449666"), ("Stations", "#3478a9"), ("Tree twins", "#2f7d4f")], "Berchtesgaden National Park", title="3D forest view")
-    render_3d_view(prediction_df, sensor_df, center, height_mode, bounds, signal, layers)
+    forest_style = None
+    surface = st.session_state.get("forest_surface", "Forest cover (2000 baseline)")
+    forest_note = ""
+    if surface != "Map only":
+        try:
+            with st.spinner("Loading forest surface..."):
+                forest_style, forest_note = get_3d_forest_basemap(bounds_to_key(bounds), year, surface)
+        except Exception:
+            forest_note = "Forest surface unavailable. Showing the context map; no substitute forest data has been generated."
+    render_3d_view(prediction_df, sensor_df, center, height_mode, bounds, signal, layers, forest_style)
+    if forest_note:
+        st.caption(forest_note)
+    st.caption("Forest surfaces are satellite-derived raster layers in the tilted map. Columns are sampled terrain or prototype stress, not individual trees.")
     if prediction_note:
         st.caption(prediction_note)
     with st.expander("Forest condition", expanded=False):
