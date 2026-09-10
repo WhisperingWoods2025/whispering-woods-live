@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whispering Woods - Local twin demo</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font:14px system-ui,sans-serif;color:#173d38;letter-spacing:0}#scene{position:absolute;inset:0}canvas{display:block;touch-action:none}.glass{background:rgba(250,253,253,.92);border:1px solid #fff;box-shadow:0 4px 18px #173d3815;backdrop-filter:blur(16px)}header{position:absolute;top:16px;left:16px;padding:12px 16px;border-radius:8px;max-width:calc(100% - 32px);pointer-events:none}h1{font-size:18px;margin:0 0 5px;font-weight:650}header p{font-size:12px;margin:0;color:#536c68}.tools{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);border-radius:8px;padding:8px;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center}button{height:38px;width:38px;border:0;border-radius:6px;background:transparent;color:#245d53;cursor:pointer;display:grid;place-items:center}button:hover,button[aria-pressed=true]{background:#d9eae5}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #247d72;outline-offset:3px}button svg{width:19px;height:19px}label{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px}input{accent-color:#287b68}select{border:1px solid #b7ccc5;border-radius:5px;padding:7px;background:#fff;color:#21443b}#status{position:absolute;right:16px;top:16px;font-size:11px;padding:8px 10px;border-radius:6px;max-width:35%;text-align:right}#error{position:absolute;inset:30% 8% auto;background:#fff;padding:22px;border-radius:8px;display:none;color:#643d38}#error button{width:auto;padding:0 15px;background:#e5eeeb;margin-top:12px}footer{position:absolute;bottom:0;right:6px;font-size:9px;color:#56716a;pointer-events:none}@media(max-width:600px){header{right:16px}#status{top:90px;right:16px;max-width:75%}.tools{gap:7px;width:calc(100% - 24px);bottom:16px}header p{line-height:1.45}}@media(prefers-reduced-transparency:reduce){.glass{background:#f8fcfa;backdrop-filter:none}}
+@media(max-width:600px){#status{top:116px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head><body>
+<div id="scene" aria-label="Interactive synthetic forest plot"></div>
+<header class="glass"><h1>Local twin study</h1><p>Synthetic placeholder. Not a Berchtesgaden scan or measurement.</p></header>
+<div id="status" class="glass" role="status">Loading local renderer...</div>
+<div class="tools glass" aria-label="Scene controls">
+<button id="reset" title="Reset camera" aria-label="Reset camera"><i data-lucide="scan"></i></button>
+<button id="rotate" title="Auto-rotate" aria-label="Auto-rotate" aria-pressed="false"><i data-lucide="rotate-3d"></i></button>
+<label><input id="splats" type="checkbox" checked>Gaussian splats</label>
+<label><input id="models" type="checkbox" checked>3D context</label>
+<select id="quality" aria-label="Rendering quality"><option value="balanced">Balanced</option><option value="lite">Low power</option></select>
+</div>
+<div id="error" role="alert"></div><footer>Three.js + Spark | synthetic geometry</footer>
+<script type="module">
+const status=document.getElementById('status');
+const error=document.getElementById('error');
+function fail(message){status.textContent='3D preview unavailable';error.style.display='block';error.textContent=message;const retry=document.createElement('button');retry.textContent='Retry';retry.onclick=()=>location.reload();error.appendChild(retry);}
+try {
+  window.lucide?.createIcons();
+  const THREE=await import('three');
+  const {OrbitControls}=await import('three/addons/controls/OrbitControls.js');
+  const {SparkRenderer,SplatMesh}=await import('@sparkjsdev/spark');
+  const host=document.getElementById('scene');
+  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:false});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+  renderer.setClearColor(0xe4edf0);renderer.outputColorSpace=THREE.SRGBColorSpace;
+  host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Synthetic tree splats and lightweight mesh forest');
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(45,1,.1,120);
+  const controls=new OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=.09;controls.minDistance=3;controls.maxDistance=32;controls.maxPolarAngle=Math.PI*.49;controls.autoRotateSpeed=.55;
+  function home(){camera.position.set(12,9,15);controls.target.set(0,2.4,0);controls.update();}home();
+  scene.add(new THREE.HemisphereLight(0xf1fcff,0x55654b,2));
+  const sun=new THREE.DirectionalLight(0xfff9eb,2.5);sun.position.set(-5,12,8);scene.add(sun);
+  const spark=new SparkRenderer({renderer});scene.add(spark);
+  const context=new THREE.Group();scene.add(context);
+  const ground=new THREE.Mesh(new THREE.CylinderGeometry(8.5,8.5,.3,64),new THREE.MeshStandardMaterial({color:0xa4b1a2,roughness:1}));ground.position.y=-.2;context.add(ground);
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x716957,roughness:1});
+  const leafMat=new THREE.MeshStandardMaterial({color:0x47765f,roughness:1,flatShading:true});
+  for(let i=0;i<11;i++){
+    const angle=i/11*Math.PI*2, radius=5.4+(i%3)*.45,height=2.8+(i%4)*.55;
+    const tree=new THREE.Group();tree.position.set(Math.cos(angle)*radius,0,Math.sin(angle)*radius);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.1,.16,height,6),trunkMat);trunk.position.y=height/2;tree.add(trunk);
+    for(let j=0;j<3;j++){const crown=new THREE.Mesh(new THREE.ConeGeometry(.85-j*.17,height*.55,7),leafMat);crown.position.y=height*.55+j*.55;tree.add(crown);}context.add(tree);
+  }
+  let mesh=null,splatCount=0;
+  function buildSplats(lite){
+    if(mesh){scene.remove(mesh);mesh.dispose();}
+    let seed=173;splatCount=0;
+    function rand(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+    const center=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion(),color=new THREE.Color();
+    mesh=new SplatMesh({constructSplats:(splats)=>{
+      function add(x,y,z,sx,sy,sz,r,g,b,opacity=.88){center.set(x,y,z);scale.set(sx,sy,sz);color.setRGB(r,g,b);splats.pushSplat(center,scale,rotation,opacity,color);splatCount++;}
+      const density=lite?.42:1;
+      for(let i=0;i<2200*density;i++){const y=rand()*4.9,a=rand()*Math.PI*2,r=.24*(1-y/6)+rand()*.035;const shade=.18+rand()*.12;add(Math.cos(a)*r,y,Math.sin(a)*r,.045,.09,.045,shade,shade*.88,shade*.66);}
+      for(let branch=0;branch<9;branch++){
+        const a=branch/9*Math.PI*2,y0=2.1+(branch%3)*.6;
+        for(let i=0;i<180*density;i++){const t=rand(),spread=rand()*.08;add(Math.cos(a)*(t*1.6)+spread,y0+t*1.5,Math.sin(a)*t*1.6,.065,.065,.065,.25,.22,.16);}
+      }
+      for(let i=0;i<13500*density;i++){
+        const a=rand()*Math.PI*2,u=rand()*2-1,r=Math.cbrt(rand());
+        const ring=Math.sqrt(1-u*u),x=Math.cos(a)*ring*r*2.25,z=Math.sin(a)*ring*r*2.0,y=4.8+u*r*2.0;
+        if(y<3.2&&Math.abs(x)<.4)continue;
+        const light=.45+.3*(x+2.25)/4.5+rand()*.25,sz=.045+rand()*.035;
+        add(x,y,z,sz*1.4,sz*.6,sz,.12*light,.38*light,.20*light,.8);
+      }
+      for(let i=0;i<3200*density;i++){const a=rand()*Math.PI*2,r=Math.sqrt(rand())*3.2,x=Math.cos(a)*r,z=Math.sin(a)*r,shade=.3+rand()*.25;add(x,.015+rand()*.04,z,.075,.018,.075,shade*.7,shade,shade*.63,.85);}
+    }});
+    scene.add(mesh);mesh.visible=document.getElementById('splats').checked;
+    status.textContent=splatCount.toLocaleString()+' synthetic splats';
+    renderer.domElement.dataset.splats=String(splatCount);
+  }
+  buildSplats(false);
+  document.getElementById('reset').onclick=home;
+  document.getElementById('rotate').onclick=(e)=>{controls.autoRotate=!controls.autoRotate;e.currentTarget.setAttribute('aria-pressed',String(controls.autoRotate));};
+  document.getElementById('splats').onchange=e=>{mesh.visible=e.target.checked;};
+  document.getElementById('models').onchange=e=>{context.visible=e.target.checked;};
+  document.getElementById('quality').onchange=e=>{const lite=e.target.value==='lite';renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.5));buildSplats(lite);};
+  function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.zoom=Math.min(1,w/h*.88);camera.updateProjectionMatrix();}resize();
+  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);
+  let visible=true,previous=0;
+  const visibility=new IntersectionObserver(entries=>visible=entries[0].isIntersecting);visibility.observe(host);
+  renderer.setAnimationLoop(time=>{if(document.hidden||!visible||time-previous<33)return;const dt=Math.min((time-previous)/1000,.1);previous=time;controls.update(dt);renderer.render(scene,camera);renderer.domElement.dataset.frame=String(Number(renderer.domElement.dataset.frame||0)+1);});
+  renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();renderer.setAnimationLoop(null);fail('The graphics context was lost. Try Low power mode after reloading, or return to Landscape.');});
+  window.addEventListener('pagehide',()=>{renderer.setAnimationLoop(null);resizeObserver.disconnect();visibility.disconnect();controls.dispose();mesh?.dispose();context.traverse(o=>{o.geometry?.dispose();});trunkMat.dispose();leafMat.dispose();ground.material.dispose();spark.dispose();renderer.dispose();},{once:true});
+} catch(e){console.error(e);fail('This preview needs WebGL2 and access to the open-source renderer CDN. No cloud processing has been started. Return to Landscape or retry.');}
+</script></body></html>
