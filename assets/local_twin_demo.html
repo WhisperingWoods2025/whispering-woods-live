@@ -4,6 +4,7 @@
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font:14px system-ui,sans-serif;color:#173d38;letter-spacing:0}#scene{position:absolute;inset:0}canvas{display:block;touch-action:none}.glass{background:rgba(250,253,253,.92);border:1px solid #fff;box-shadow:0 4px 18px #173d3815;backdrop-filter:blur(16px)}header{position:absolute;top:16px;left:16px;padding:12px 16px;border-radius:8px;max-width:calc(100% - 32px);pointer-events:none}h1{font-size:18px;margin:0 0 5px;font-weight:650}header p{font-size:12px;margin:0;color:#536c68}.tools{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);border-radius:8px;padding:8px;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center}button{height:38px;width:38px;border:0;border-radius:6px;background:transparent;color:#245d53;cursor:pointer;display:grid;place-items:center}button:hover,button[aria-pressed=true]{background:#d9eae5}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #247d72;outline-offset:3px}button svg{width:19px;height:19px}label{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px}input{accent-color:#287b68}select{border:1px solid #b7ccc5;border-radius:5px;padding:7px;background:#fff;color:#21443b}#status{position:absolute;right:16px;top:16px;font-size:11px;padding:8px 10px;border-radius:6px;max-width:35%;text-align:right}#error{position:absolute;inset:30% 8% auto;background:#fff;padding:22px;border-radius:8px;display:none;color:#643d38}#error button{width:auto;padding:0 15px;background:#e5eeeb;margin-top:12px}footer{position:absolute;bottom:0;right:6px;font-size:9px;color:#56716a;pointer-events:none}@media(max-width:600px){header{right:16px}#status{top:90px;right:16px;max-width:75%}.tools{gap:7px;width:calc(100% - 24px);bottom:16px}header p{line-height:1.45}}@media(prefers-reduced-transparency:reduce){.glass{background:#f8fcfa;backdrop-filter:none}}
 @media(max-width:600px){#status{top:116px}}
+.embedded header{top:auto;bottom:86px}.embedded #status{top:110px}@media(max-width:600px){.embedded header{bottom:140px}.embedded #status{top:160px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"}}</script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
@@ -21,6 +22,7 @@
 <div id="error" role="alert"></div><footer>Three.js + Spark | synthetic geometry</footer>
 <script type="module">
 const status=document.getElementById('status');
+if(window.parent!==window)document.body.classList.add('embedded');
 const error=document.getElementById('error');
 function fail(message){status.textContent='3D preview unavailable';error.style.display='block';error.textContent=message;const retry=document.createElement('button');retry.textContent='Retry';retry.onclick=()=>location.reload();error.appendChild(retry);}
 try {
@@ -93,3 +95,4 @@ try {
   window.addEventListener('pagehide',()=>{renderer.setAnimationLoop(null);resizeObserver.disconnect();visibility.disconnect();controls.dispose();mesh?.dispose();context.traverse(o=>{o.geometry?.dispose();});trunkMat.dispose();leafMat.dispose();ground.material.dispose();spark.dispose();renderer.dispose();},{once:true});
 } catch(e){console.error(e);fail('This preview needs WebGL2 and access to the open-source renderer CDN. No cloud processing has been started. Return to Landscape or retry.');}
 </script></body></html>
+
