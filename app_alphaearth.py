@@ -7,8 +7,9 @@ import json
 import math
 import re
 import urllib.request
+import urllib.parse
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import folium
@@ -1578,6 +1579,47 @@ def screen_motion_vector(angle_deg: float, distance_px: float) -> tuple[float, f
     return math.sin(angle) * distance_px, -math.cos(angle) * distance_px
 
 
+
+def parse_icon_wind_grid(payload: list[dict], hour_utc: int) -> dict:
+    if not isinstance(payload, list) or len(payload) != 81:
+        raise ValueError("Incomplete ICON wind grid.")
+    vectors = []
+    valid_time = hour_utc * 3600
+    for location in payload:
+        hourly = location["hourly"]
+        if location["hourly_units"]["wind_speed_10m"] != "m/s":
+            raise ValueError("Unexpected wind units.")
+        index = hourly["time"].index(valid_time)
+        speed = float(hourly["wind_speed_10m"][index])
+        direction = float(hourly["wind_direction_10m"][index])
+        if not (math.isfinite(speed) and math.isfinite(direction) and 0 <= speed <= 100 and 0 <= direction <= 360):
+            raise ValueError("Invalid ICON vector.")
+        angle = math.radians(direction)
+        vectors.append([-speed * math.sin(angle), -speed * math.cos(angle)])
+    return {"south": 47.4, "north": 47.75, "west": 12.75, "east": 13.15,
+            "rows": 9, "cols": 9, "vectors": vectors, "valid_time": valid_time}
+
+
+@st.cache_data(ttl=3600, max_entries=2, show_spinner=False)
+def get_icon_wind_grid(hour_utc: int) -> Optional[dict]:
+    # Fixed public study region: 81 locations/hour, no account, key or paid endpoint.
+    lats = [f"{47.4 + y * 0.35 / 8:.5f}" for y in range(9) for x in range(9)]
+    lons = [f"{12.75 + x * 0.40 / 8:.5f}" for y in range(9) for x in range(9)]
+    query = urllib.parse.urlencode({
+        "latitude": ",".join(lats), "longitude": ",".join(lons),
+        "hourly": "wind_speed_10m,wind_direction_10m", "models": "icon_d2",
+        "wind_speed_unit": "ms", "timeformat": "unixtime",
+        "forecast_days": 1, "cell_selection": "nearest",
+    })
+    try:
+        with urllib.request.urlopen("https://api.open-meteo.com/v1/forecast?" + query, timeout=15) as response:
+            data = json.loads(response.read(2_000_000))
+        return parse_icon_wind_grid(data, hour_utc)
+    except Exception:
+        # Cache failures too; never retry in a loop or switch to a paid service.
+        return None
+
+
 def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers: dict[str, bool], signal: dict) -> None:
     active_motion = any(layers.get(key) for key in ("cloud_veil", "precipitation", "wind_flow", "moisture_flow"))
     if not active_motion:
@@ -1592,12 +1634,14 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     css_angle = 90 + float(signal["wind_direction"])
 
     payload = {
+        "wind_grid": signal.get("wind_grid"),
+        "wind_source": signal.get("wind_field_note", "Regional wind context"),
         "clouds": [],
         "wind": [],
         "rain": [],
         "stage": {
             "cloud": bool(layers.get("cloud_veil")),
-            "wind": bool(layers.get("wind_flow") or layers.get("precipitation")),
+            "wind": bool(layers.get("wind_flow")),
             "rain": bool(layers.get("precipitation") and signal["precip_intensity"] > 0.01),
             "moisture": bool(layers.get("moisture_flow")),
             "angle": round(css_angle, 1),
@@ -1735,7 +1779,9 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
   stage.style.setProperty("--moisture-alpha", (0.30 + payload.stage.moisture_strength * 0.30).toFixed(2));
   stage.style.setProperty("--moisture-field-alpha", (0.18 + payload.stage.moisture_strength * 0.22).toFixed(2));
   const badge = L.DomUtil.create("div", "ww-motion-badge", layer);
-  badge.innerHTML = "<i></i><span>weather flow</span>";
+  badge.innerHTML = "<i></i><span></span>";
+  badge.querySelector("span").textContent = payload.stage.wind ? (payload.wind_grid ? "ICON model wind" : "Regional wind") : "weather context";
+  badge.title = payload.wind_source;
   function addWindStreamfield() {
     addWindParticles();
   }
@@ -1743,53 +1789,91 @@ def add_weather_motion_overlay(m: folium.Map, bounds: list[list[float]], layers:
     const canvas = L.DomUtil.create("canvas", "ww-wind-particles", stage);
     canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none";
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let width = 0, height = 0, particles = [], frame = 0, previous = 0;
-    const angle = payload.stage.angle * Math.PI / 180;
-    const speed = 18 + payload.stage.wind_strength * 52;
+    let width=0, height=0, particles=[], frame=0, previous=0, moving=false;
+    let field=[], fieldCols=0, fieldRows=0;
+    const step=28, grid=payload.wind_grid;
+    const angle=payload.stage.angle*Math.PI/180;
+    function bilinear(values, cols, rows, x, y) {
+      if (x<0 || y<0 || x>cols-1 || y>rows-1) return null;
+      const ix=Math.min(cols-2,Math.floor(x)), iy=Math.min(rows-2,Math.floor(y));
+      const tx=x-ix, ty=y-iy;
+      const cells=[values[iy*cols+ix],values[iy*cols+ix+1],values[(iy+1)*cols+ix],values[(iy+1)*cols+ix+1]];
+      if(cells.some(v=>!v)) return null;
+      return [0,1].map(k=>(cells[0][k]*(1-tx)+cells[1][k]*tx)*(1-ty)+(cells[2][k]*(1-tx)+cells[3][k]*tx)*ty);
+    }
+    function rebuildField() {
+      fieldCols=Math.ceil(width/step)+1; fieldRows=Math.ceil(height/step)+1; field=[];
+      for(let y=0;y<fieldRows;y++) for(let x=0;x<fieldCols;x++) {
+        if(grid) {
+          const ll=map.containerPointToLatLng([x*step,y*step]);
+          const v=bilinear(grid.vectors,grid.cols,grid.rows,
+            (ll.lng-grid.west)/(grid.east-grid.west)*(grid.cols-1),
+            (ll.lat-grid.south)/(grid.north-grid.south)*(grid.rows-1));
+          // East/north vectors become right/up screen motion. No decorative turbulence.
+          field.push(v ? [v[0]*14,-v[1]*14] : null);
+        } else {
+          const speed=payload.stage.wind_strength*45;
+          field.push([Math.cos(angle)*speed,Math.sin(angle)*speed]);
+        }
+      }
+    }
+    function velocity(x,y) { return bilinear(field,fieldCols,fieldRows,x/step,y/step); }
     function reset(p) {
-      p.x = Math.random() * width; p.y = Math.random() * height;
-      p.age = 0; p.life = 1.2 + Math.random() * 2.8; p.trail = [];
-      return p;
+      for(let attempt=0;attempt<24;attempt++) {
+        p.x=Math.random()*width; p.y=Math.random()*height;
+        if(velocity(p.x,p.y)) break;
+      }
+      p.age=0; p.life=2.5+Math.random()*2.5; p.trail=[]; return p;
     }
     function resize() {
-      width = container.clientWidth; height = container.clientHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = width * dpr; canvas.height = height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      particles = Array.from({length:Math.min(850, Math.max(120, Math.round(width * height / 1600)))}, () => {
-        const p = reset({}); p.age = Math.random() * p.life; return p;
-      });
+      width=container.clientWidth; height=container.clientHeight;
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      canvas.width=width*dpr; canvas.height=height*dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      rebuildField();
+      particles=Array.from({length:Math.min(600,Math.max(100,Math.round(width*height/1400)))},()=>reset({}));
     }
     function draw(now) {
-      if (!canvas.isConnected) { cleanup(); return; }
-      const dt = Math.min((now - previous) / 1000 || .016, .05); previous = now;
-      ctx.clearRect(0, 0, width, height);
-      if (!document.hidden && !reduced.matches) {
-        particles.forEach(p => {
-          p.age += dt;
-          if (p.age > p.life || p.x < -20 || p.x > width+20 || p.y < -20 || p.y > height+20) reset(p);
-          // Small visual curvature, not a claim of measured local turbulence.
-          const bend = .10 * Math.sin(p.x / 220 + p.y / 310);
-          p.x += Math.cos(angle + bend) * speed * dt;
-          p.y += Math.sin(angle + bend) * speed * dt;
-          p.trail.push([p.x,p.y]); if (p.trail.length > 55) p.trail.shift();
-          const fade = Math.min(1,p.age/.4,(p.life-p.age)/.6);
-          if (p.trail.length < 2) return;
-          ctx.beginPath(); p.trail.forEach((point,i) => i ? ctx.lineTo(...point) : ctx.moveTo(...point));
-          ctx.lineCap = "round";
-          ctx.strokeStyle = "rgba(24,83,108," + (.65*fade) + ")"; ctx.lineWidth=2.2; ctx.stroke();
-          ctx.strokeStyle = "rgba(223,249,255," + (.95*fade) + ")"; ctx.lineWidth=1.0; ctx.stroke();
-        });
+      if(!canvas.isConnected) { cleanup(); return; }
+      const dt=Math.min((now-previous)/1000||.016,.05); previous=now;
+      ctx.clearRect(0,0,width,height);
+      if(!document.hidden && !reduced.matches && !moving) {
+        for(const p of particles) {
+          p.age+=dt;
+          let v=velocity(p.x,p.y);
+          if(p.age>p.life || !v) { reset(p); continue; }
+          // Midpoint integration follows the interpolated field through each step.
+          const mid=velocity(p.x+v[0]*dt/2,p.y+v[1]*dt/2);
+          if(!mid || Math.hypot(...mid)<.25) { p.trail=[]; continue; }
+          p.x+=mid[0]*dt; p.y+=mid[1]*dt;
+          p.trail.push([p.x,p.y]);
+          if(p.trail.length>32) p.trail.shift();
+          const fade=Math.max(0,Math.min(1,p.age/.6,(p.life-p.age)/.8));
+          ctx.lineCap="round";
+          for(let i=2;i<p.trail.length;i+=2) {
+            const taper=i/(p.trail.length-1);
+            const opacity=fade*taper*.8;
+            ctx.beginPath(); ctx.moveTo(...p.trail[i-2]); ctx.lineTo(...p.trail[i]);
+            ctx.strokeStyle="rgba(26,77,93,"+(opacity*.45)+")";ctx.lineWidth=.8+taper*.5;ctx.stroke();
+            ctx.strokeStyle="rgba(219,247,255,"+opacity+")";ctx.lineWidth=.25+taper*.55;ctx.stroke();
+          }
+        }
       }
-      canvas.dataset.frame = String(Number(canvas.dataset.frame || 0) + 1);
-      frame = requestAnimationFrame(draw);
+      canvas.dataset.frame=String(Number(canvas.dataset.frame||0)+1);
+      canvas.dataset.source=grid ? "icon-d2" : "regional";
+      frame=requestAnimationFrame(draw);
     }
-    function cleanup() { cancelAnimationFrame(frame); observer.disconnect(); map.off("movestart", clear); }
-    function clear() { particles.forEach(reset); }
-    const observer = new ResizeObserver(resize); observer.observe(container);
-    map.on("movestart", clear); map.on("unload", cleanup);
-    resize(); frame = requestAnimationFrame(draw);
+    function startMove() { moving=true; ctx.clearRect(0,0,width,height); }
+    function endMove() { moving=false; rebuildField(); particles.forEach(reset); }
+    function cleanup() {
+      cancelAnimationFrame(frame); observer.disconnect();
+      map.off("movestart zoomstart",startMove);map.off("moveend zoomend",endMove);map.off("unload",cleanup);
+    }
+    const observer=new ResizeObserver(resize);observer.observe(container);
+    map.on("movestart zoomstart",startMove);map.on("moveend zoomend",endMove);map.on("unload",cleanup);
+    resize();frame=requestAnimationFrame(draw);
   }
   function addMoistureStreamfield() {
     const svgNS = "http://www.w3.org/2000/svg";
@@ -1907,17 +1991,6 @@ def add_weather_canvas_overlays(m: folium.Map, bounds: list[list[float]], layers
             start_lat = min_lat + lat_span * (0.06 + idx * 0.11)
             start_lon = min_lon + lon_span * (0.08 + ((idx * 0.13 + seed) % 0.78))
             folium.PolyLine(flowline_points(start_lat, start_lon, signal["wind_direction"] + 18, lat_span * 0.34, lon_span * 0.34, seed + idx), color="#a9dff3", weight=0.28, opacity=signal["precip_intensity"] * 0.06, dash_array="1 24", tooltip="Rain direction", pane=rain_pane, **silent_path).add_to(group)
-        group.add_to(m)
-
-    if layers.get("wind_flow"):
-        group = folium.FeatureGroup(name="Wind streamlines", show=True)
-        wind_opacity = 0.10 + clamp(float(signal["wind"] or 0) / 9, 0, 1) * 0.14
-        for idx in range(22):
-            start_lat = min_lat + lat_span * (0.035 + idx * 0.044)
-            start_lon = min_lon + lon_span * (0.02 + ((idx * 0.19 + seed * 0.3) % 0.96))
-            points = flowline_points(start_lat, start_lon, signal["wind_direction"], lat_span * 0.62, lon_span * 0.62, seed + idx * 0.8)
-            folium.PolyLine(points, color="#f2fcff", weight=0.58, opacity=wind_opacity, dash_array="4 25", tooltip=f"Wind {format_number(signal['wind'], ' m/s')} from {signal['wind_direction']:.0f} deg", pane=wind_pane, **silent_path).add_to(group)
-            folium.PolyLine(points, color="#77c2d3", weight=0.20, opacity=wind_opacity * 0.58, dash_array="4 25", pane=wind_pane, **silent_path).add_to(group)
         group.add_to(m)
 
     if layers.get("moisture_flow"):
@@ -3375,6 +3448,10 @@ def render_map_mode(year: int, period: dict, projection_year: int, scenario_name
     captions = [f"Weather-canvas overlays are rendered in-app from {signal['source']}; animated wind, cloud, moisture, and rain cues are visual guides, not operational radar. Annual Earth Engine layers stay source-native and read-only."]
     if layers.get("alphaearth") and alphaearth_tile_count:
         captions.append(f"AlphaEarth is scoped to {alphaearth_tile_count} tile(s) for the selected AOI.")
+    if layers.get("wind_flow"):
+        captions.append(signal.get("wind_field_note", "Regional wind context"))
+        if signal.get("wind_grid"):
+            st.caption("Modelled wind: DWD ICON-D2 via [Open-Meteo](https://open-meteo.com/). " + signal["wind_field_note"])
     captions.extend(notes)
     with st.expander("Observations and evidence", expanded=False):
         st.caption(" ".join(captions))
@@ -3466,6 +3543,17 @@ def main() -> None:
         center, bounds = get_aoi_view(aoi)
     except Exception as exc:
         show_earth_engine_error("Earth Engine could not locate the selected area.", exc)
+
+    signal["wind_grid"] = None
+    signal["wind_field_note"] = "Regional wind context from " + signal["source"] + "; not a spatial wind model."
+    if app_mode == "Map" and layers.get("wind_flow") and st.session_state.get("observed_time_mode") == "Today":
+        hour_utc = int(datetime.now(timezone.utc).timestamp() // 3600)
+        signal["wind_grid"] = get_icon_wind_grid(hour_utc)
+        if signal["wind_grid"]:
+            stamp = datetime.fromtimestamp(signal["wind_grid"]["valid_time"], timezone.utc).strftime("%d %b %Y %H:%M UTC")
+            signal["wind_field_note"] = f"DWD ICON-D2 via Open-Meteo, valid {stamp}. Interpolated 9 x 9 regional samples of modelled 10 m wind; not tree-level measurements. Animation speed is illustrative."
+        else:
+            signal["wind_field_note"] += " ICON spatial grid unavailable."
 
     enabled_count = sum(1 for enabled in layers.values() if enabled)
     with st.container():
