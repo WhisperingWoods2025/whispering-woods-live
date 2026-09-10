@@ -11,11 +11,13 @@ import urllib.parse
 import zipfile
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from pathlib import Path
 
 import folium
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
+import streamlit.components.v1 as components
 from branca.element import Element, MacroElement, Template
 
 try:
@@ -2517,6 +2519,15 @@ def render_layer_panel() -> tuple:
     st.session_state["_last_workspace_mode"] = app_mode
     st.markdown("</div>", unsafe_allow_html=True)
 
+    if app_mode == "3D View":
+        detail = st.radio("3D workspace", ["Landscape", "Local demo"], horizontal=True, key="twin_detail_view")
+        if detail == "Local demo":
+            today = current_observed_date()
+            st.markdown("</div>", unsafe_allow_html=True)
+            return (app_mode, today.year, today.year, "Moderate", "Terrain", "Monochrome", "",
+                    {layer_id: False for layer_id, _, _ in LAYER_META}, "Local demo", "Daily",
+                    today.timetuple().tm_yday, "Selected timeline")
+
     st.markdown("<div class='ww-control-band'><div class='ww-section-label'>Lens</div>", unsafe_allow_html=True)
     view_mode = st.selectbox("Exploration lens", list(VIEW_PRESETS.keys()), index=0, label_visibility="collapsed", key="exploration_lens")
     apply_view_preset(view_mode, app_mode)
@@ -3517,12 +3528,17 @@ def main() -> None:
     st.set_page_config(page_title="Whispering Woods", layout="wide", initial_sidebar_state="collapsed")
     inject_theme_css()
     usage_mode = enforce_no_cost_guardrail()
-    _init_ee_cached()
-
     with st.container(key="floating_controls"):
         with st.popover("Explore", icon=":material/tune:"):
             app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
 
+    if app_mode == "3D View" and st.session_state.get("twin_detail_view") == "Local demo":
+        render_topbar(app_mode)
+        demo_path = Path(__file__).resolve().parent / "assets" / "local_twin_demo.html"
+        components.html(demo_path.read_text(encoding="utf-8"), height=720, scrolling=False)
+        return
+
+    _init_ee_cached()
     if app_mode != "3D View":
         with st.container(key="map_appearance"):
             with st.popover("Map style", icon=":material/map:"):
