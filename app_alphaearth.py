@@ -2520,8 +2520,8 @@ def render_layer_panel() -> tuple:
     st.markdown("</div>", unsafe_allow_html=True)
 
     if app_mode == "3D View":
-        detail = st.radio("3D workspace", ["Landscape", "Local demo"], horizontal=True, key="twin_detail_view")
-        if detail == "Local demo":
+        detail = st.radio("3D workspace", ["Landscape", "Local demo", "Tree scan"], horizontal=True, key="twin_detail_view")
+        if detail in {"Local demo", "Tree scan"}:
             today = current_observed_date()
             st.markdown("</div>", unsafe_allow_html=True)
             return (app_mode, today.year, today.year, "Moderate", "Terrain", "Monochrome", "",
@@ -3532,9 +3532,10 @@ def main() -> None:
         with st.popover("Explore", icon=":material/tune:"):
             app_mode, year, projection_year, scenario_name, height_mode, basemap, geojson_input, layers, view_mode, granularity, step_index, weather_source = render_layer_panel()
 
-    if app_mode == "3D View" and st.session_state.get("twin_detail_view") == "Local demo":
+    if app_mode == "3D View" and st.session_state.get("twin_detail_view") in {"Local demo", "Tree scan"}:
         render_topbar(app_mode)
-        demo_path = Path(__file__).resolve().parent / "assets" / "local_twin_demo.html"
+        demo_file = "tree_scan_demo.html" if st.session_state.get("twin_detail_view") == "Tree scan" else "local_twin_demo.html"
+        demo_path = Path(__file__).resolve().parent / "assets" / demo_file
         components.html(demo_path.read_text(encoding="utf-8"), height=720, scrolling=False)
         return
 
@@ -3588,3 +3589,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

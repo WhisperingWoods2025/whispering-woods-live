@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whispering Woods - Tree scan</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font:14px system-ui,sans-serif;color:#21423e;letter-spacing:0}#scene{position:absolute;inset:0}canvas{display:block;touch-action:none}.glass{background:rgba(248,252,251,.94);border:1px solid #fff;box-shadow:0 4px 18px #173d3815;backdrop-filter:blur(16px);border-radius:8px}header{position:absolute;bottom:96px;left:16px;padding:12px 16px;max-width:calc(100% - 32px)}h1{font-size:18px;margin:0 0 5px}p{font-size:12px;margin:3px 0;line-height:1.5}a{color:#216854}#status{position:absolute;right:16px;top:116px;padding:9px 12px;font-size:12px}.tools{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);padding:8px;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px)}button{height:38px;width:38px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#245d53;cursor:pointer}button:hover,button[aria-pressed=true]{background:#d9eae5}button svg{width:19px;height:19px}button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #247d72;outline-offset:3px}select{padding:8px;border:1px solid #b7ccc5;border-radius:5px;background:#fff;color:#21443b}#error{display:none;position:absolute;top:35%;left:10%;right:10%;padding:20px;background:#fff;border-radius:8px}#error button{width:auto;padding:0 16px;background:#d9eae5}footer{position:absolute;right:8px;bottom:2px;font-size:10px} @media(max-width:600px){header{bottom:100px}#status{top:160px;max-width:90%}.tools{gap:8px}header p{font-size:11px}}@media(prefers-reduced-transparency:reduce){.glass{background:#f8fcfa;backdrop-filter:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script></head><body>
+<div id="scene"></div>
+<header class="glass"><h1>Lawn-tree scan</h1><p>External capture demo. Not Berchtesgaden; not a measured tree twin.</p><p>Charin Rungchaowarat (promc) · <a href="https://huggingface.co/datasets/promc/reconstruction-scenes" target="_blank" rel="noopener">Source</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a></p><p>Locally simplified and compressed. Capture date and metric scale unverified.</p></header>
+<div id="status" class="glass" role="status">Loading tree scan...</div>
+<div class="tools glass" aria-label="Tree scan controls"><button id="reset" title="Reset camera" aria-label="Reset camera"><i data-lucide="scan"></i></button><button id="rotate" title="Auto-rotate" aria-label="Auto-rotate" aria-pressed="false"><i data-lucide="rotate-3d"></i></button><select id="quality" aria-label="Rendering quality"><option value="balanced">Balanced</option><option value="lite">Low power</option></select></div>
+<div id="error" role="alert"></div><footer>Three.js + Spark</footer>
+<script type="module">
+const status=document.getElementById('status'),error=document.getElementById('error');
+const abort=new AbortController();let disposed=false,renderer,mesh,controls,spark,resizeObserver,visibility;
+function cleanup(){disposed=true;abort.abort();renderer?.setAnimationLoop(null);resizeObserver?.disconnect();visibility?.disconnect();controls?.dispose();mesh?.dispose();spark?.dispose();renderer?.dispose();}
+window.addEventListener('pagehide',cleanup,{once:true});
+function fail(message){status.textContent='Scan unavailable';error.style.display='block';error.textContent=message;const retry=document.createElement('button');retry.textContent='Retry';retry.onclick=()=>location.reload();error.appendChild(retry);}
+try{
+window.lucide?.createIcons();
+const THREE=await import('three');const {OrbitControls}=await import('three/addons/controls/OrbitControls.js');const {SparkRenderer,SplatMesh}=await import('@sparkjsdev/spark');
+if(disposed)throw new Error('Closed');
+renderer=new THREE.WebGLRenderer({antialias:false});renderer.setClearColor(0xe4edf0);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+const host=document.getElementById('scene');host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','External lawn-tree Gaussian splat scan');
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(45,1,.01,10000);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.autoRotateSpeed=.5;
+spark=new SparkRenderer({renderer});scene.add(spark);
+const url=['localhost','127.0.0.1'].includes(location.hostname)?'/assets/lawn-tree.spz':'https://raw.githubusercontent.com/WhisperingWoods2025/whispering-woods-live/main/assets/lawn-tree.spz';
+const timeout=setTimeout(()=>abort.abort(),60000);let bytes;
+try{const response=await fetch(url,{signal:abort.signal});if(!response.ok)throw new Error('HTTP '+response.status);bytes=await response.arrayBuffer();}finally{clearTimeout(timeout);}
+if(bytes.byteLength>16000000)throw new Error('Unexpected scan size');
+mesh=new SplatMesh({fileBytes:bytes,fileName:'lawn-tree.spz'});await mesh.initialized;if(disposed){mesh.dispose();throw new Error('Closed');}
+mesh.rotation.x=Math.PI;scene.add(mesh);mesh.updateMatrixWorld(true);
+const bounds=mesh.getBoundingBox().applyMatrix4(mesh.matrixWorld),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+const radius=Math.max(size.x,size.y,size.z)*.5;
+controls.target.copy(center);controls.minDistance=radius*.12;controls.maxDistance=radius*8;camera.far=radius*30;camera.near=radius*.001;
+function home(){controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(0,.3,1).normalize().multiplyScalar(radius*3));controls.update();}home();
+function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.zoom=Math.min(1,w/h*.85);camera.updateProjectionMatrix();}resize();resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);
+document.getElementById('reset').onclick=home;document.getElementById('rotate').onclick=e=>{controls.autoRotate=!controls.autoRotate;e.currentTarget.setAttribute('aria-pressed',String(controls.autoRotate));};
+let lite=false;document.getElementById('quality').onchange=e=>{lite=e.target.value==='lite';renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.5));resize();};
+let visible=true,previous=0,frames=0;visibility=new IntersectionObserver(entries=>visible=entries[0].isIntersecting);visibility.observe(host);
+renderer.setAnimationLoop(time=>{if(document.hidden||!visible||time-previous<(lite?50:33))return;controls.update(Math.min((time-previous)/1000,.1));previous=time;renderer.render(scene,camera);renderer.domElement.dataset.frame=String(++frames);});
+renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();renderer.setAnimationLoop(null);fail('Graphics context lost. Return to Landscape or reload this demo.');});
+status.textContent=mesh.numSplats.toLocaleString()+' splats · '+(bytes.byteLength/1000000).toFixed(1)+' MB';
+}catch(e){if(!disposed){console.error(e);fail('The external scan could not load. Return to Landscape or retry. No cloud processing was started.');}}
+</script></body></html>
+
